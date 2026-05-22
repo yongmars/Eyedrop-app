@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "../components/Navbar";
@@ -13,9 +13,22 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  themeColor: "#0284c7",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 export const metadata: Metadata = {
-  title: "目薬管理＆ご褒美アプリ",
+  title: "ノクトのまいにち点眼管理アプリ",
   description: "楽しく目薬の習慣をつけるアプリ",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "まいにち点眼",
+  },
 };
 
 export default function RootLayout({
@@ -39,6 +52,18 @@ export default function RootLayout({
           {/* Bottom Navigation Bar */}
           <Navbar />
         </div>
+        {/* Service Worker Registration */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js');
+                });
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );
