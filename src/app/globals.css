@@ -57,3 +57,82 @@ body {
 .animate-float-in-soft {
   animation: float-in-soft 0.8s cubic-bezier(0.33, 1, 0.68, 1) forwards;
 }
+
+/* ポップなフキダシ */
+.pop-speech-bubble {
+  position: absolute;
+  top: 8px;
+  right: 12px; /* フキダシを右端寄りに配置 */
+  
+  /* 自動伸縮と最大幅 */
+  width: fit-content;
+  max-width: 155px; /* スマホでの最大幅（キャラクターと被るのを防ぐため） */
+  
+  /* 背景と枠線 */
+  background-color: #ffffff;
+  border: 2px solid #8c6f5a; /* 太さを2pxに細くし、マイルドなココアブラウンに変更 */
+  border-radius: 20px; /* 線が細くなったのに合わせて角丸を少し調整 */
+  
+  /* 余白 */
+  padding: 10px 16px;
+  
+  /* 影 */
+  box-shadow: 0 4px 0px rgba(140, 111, 90, 0.12); /* 影も柔らかく調整 */
+  
+  /* 配置とテキスト設定 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  
+  /* 少しだけ傾けてポップさを強調 */
+  transform: rotate(2deg);
+}
+
+@media (min-width: 640px) {
+  .pop-speech-bubble {
+    /* PC表示のときは、キャラクターと離れるため、もっと右端に寄せて横幅を十分に広げる */
+    right: 24px;
+    max-width: 340px; /* 横幅を340pxまで広げて、セリフが縦長になりすぎるのを防ぐ */
+    top: 12px;
+  }
+}
+
+@media (min-width: 768px) {
+  .pop-speech-bubble {
+    right: 48px; /* さらに大きな画面ではもっと右に寄せる */
+    max-width: 360px;
+  }
+}
+
+/* フキダシのしっぽ（外側の茶色い線） */
+.pop-speech-bubble::before {
+  content: "";
+  position: absolute;
+  bottom: -20px; /* しっぽの飛び出し量 */
+  left: 24px; /* しっぽの位置 */
+  
+  /* 三角形をつくる */
+  border-style: solid;
+  border-width: 20px 14px 0 0;
+  border-color: #8c6f5a transparent transparent transparent;
+  
+  /* 角度をキャラクター（左下）に向けるために少し斜めにする */
+  transform: skewX(-20deg);
+  z-index: -1;
+}
+
+/* フキダシのしっぽ（内側の白い塗りつぶし） */
+.pop-speech-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -17px; /* 枠線2px分だけ上にずらす */
+  left: 25.5px; /* 枠線2px分だけ右にずらす */
+  
+  border-style: solid;
+  border-width: 17px 12px 0 0;
+  border-color: #ffffff transparent transparent transparent;
+  
+  transform: skewX(-20deg);
+  z-index: 1;
+}

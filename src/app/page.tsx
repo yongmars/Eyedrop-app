@@ -459,7 +459,6 @@ export default function Home() {
           ) : <div className="w-12"></div>}
         </header>
 
-        {/* Character Area */}
         <div
           className="flex flex-col items-center justify-center h-[200px] relative cursor-pointer touch-manipulation"
           onClick={() => {
@@ -476,7 +475,8 @@ export default function Home() {
             }
           }}
         >
-          <div className="mr-24"> {/* 吹き出しと被らないようにキャラをさらに左にずらす */}
+          {/* キャラクター画像を中央から左寄りに配置 */}
+          <div className="mr-24 sm:mr-32">
             <Image
               key={`${character}-${selectedTiming}`}
               src={getCharacterImage()}
@@ -487,9 +487,11 @@ export default function Home() {
               priority
             />
           </div>
-          {/* Chat Bubble */}
-          <div className="absolute top-2 right-2 md:right-6 bg-white dark:bg-slate-700 shadow-md rounded-2xl rounded-bl-none p-3 px-4 transform rotate-2 max-w-[150px]">
-            <p className="text-sm font-bold text-blue-600 dark:text-blue-300 whitespace-pre-line">{message}</p>
+          {/* Chat Bubble（画面右端寄りに absolute 配置） */}
+          <div className="pop-speech-bubble select-none">
+            <p className="text-sm font-bold text-[#0284c7] whitespace-pre-line text-center leading-relaxed">
+              {message}
+            </p>
           </div>
         </div>
 
