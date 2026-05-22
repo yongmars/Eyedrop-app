@@ -44,11 +44,11 @@ interface TimingState {
 export default function Home() {
   const getTimingLabel = (t: TimingType) => {
     switch (t) {
-      case "morning": return { label: "朝", icon: "☀️", color: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-955/20 dark:text-amber-400 dark:border-amber-900/30" };
-      case "lunch": return { label: "昼", icon: "🕛", color: "bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-955/20 dark:text-sky-400 dark:border-sky-900/30" };
-      case "dinner": return { label: "夕", icon: "🌆", color: "bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-955/20 dark:text-orange-400 dark:border-orange-900/30" };
-      case "bedtime": return { label: "就寝前", icon: "🌙", color: "bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-955/20 dark:text-indigo-400 dark:border-indigo-900/30" };
-      case "as_needed": return { label: "頓服", icon: "💊", color: "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-955/20 dark:text-purple-400 dark:border-purple-900/30" };
+      case "morning": return { label: "朝", icon: "/morning.png", color: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-955/20 dark:text-amber-400 dark:border-amber-900/30" };
+      case "lunch": return { label: "昼", icon: "/lunch.png", color: "bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-955/20 dark:text-sky-400 dark:border-sky-900/30" };
+      case "dinner": return { label: "夕", icon: "/dinner.png", color: "bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-955/20 dark:text-orange-400 dark:border-orange-900/30" };
+      case "bedtime": return { label: "就寝前", icon: "/bedtime.png", color: "bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-955/20 dark:text-indigo-400 dark:border-indigo-900/30" };
+      case "as_needed": return { label: "頓用", icon: "/as_needed.png", color: "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-955/20 dark:text-purple-400 dark:border-purple-900/30" };
     }
   };
 
@@ -436,10 +436,10 @@ export default function Home() {
   };
 
   const timingTabs: { type: TabTimingType; label: string; icon: string; activeColor: string }[] = [
-    { type: "morning", label: "朝", icon: "☀️", activeColor: "bg-amber-500 text-white shadow-amber-500/30" },
-    { type: "lunch", label: "昼", icon: "🕛", activeColor: "bg-sky-500 text-white shadow-sky-500/30" },
-    { type: "dinner", label: "夕", icon: "🌆", activeColor: "bg-orange-500 text-white shadow-orange-500/30" },
-    { type: "bedtime", label: "就寝前", icon: "🌙", activeColor: "bg-indigo-500 text-white shadow-indigo-500/30" },
+    { type: "morning", label: "朝", icon: "/morning.png", activeColor: "bg-amber-500 text-white shadow-amber-500/30" },
+    { type: "lunch", label: "昼", icon: "/lunch.png", activeColor: "bg-sky-500 text-white shadow-sky-500/30" },
+    { type: "dinner", label: "夕", icon: "/dinner.png", activeColor: "bg-orange-500 text-white shadow-orange-500/30" },
+    { type: "bedtime", label: "就寝前", icon: "/bedtime.png", activeColor: "bg-indigo-500 text-white shadow-indigo-500/30" },
   ];
 
   return (
@@ -522,14 +522,14 @@ export default function Home() {
               <button
                 key={tab.type}
                 onClick={() => setSelectedTiming(tab.type)}
-                className={`flex-1 flex items-center justify-center gap-1 py-3 px-1.5 rounded-xl transition-all duration-300 touch-manipulation cursor-pointer relative
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl transition-all duration-300 touch-manipulation cursor-pointer relative
                   ${isActive 
                     ? `${tab.activeColor} scale-[1.03] shadow-md font-bold` 
                     : "text-slate-600 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-700"
                   }`}
               >
-                <span className="text-base">{tab.icon}</span>
-                <span className="text-sm tracking-tight">{tab.label}</span>
+                <img src={tab.icon} alt="" className="w-8 h-8 object-contain flex-shrink-0" />
+                <span className="text-xs sm:text-sm tracking-tight">{tab.label}</span>
                 {isTabDone && (
                   <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center border border-white dark:border-slate-800">
                     ✓
@@ -565,19 +565,22 @@ export default function Home() {
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-300">
-                        頓服
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-300 flex items-center gap-1">
+                        <img src="/as_needed.png" alt="" className="w-3.5 h-3.5 object-contain" />
+                        頓用
                       </span>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded text-gray-500 bg-gray-200 dark:bg-gray-700 dark:text-gray-300">
                         {getTypeLabel(med.type)}
                       </span>
                       {med.storage === "cold" ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded text-cyan-600 bg-cyan-100 flex items-center gap-1" title="冷所保存">
-                          ❄️ 冷所
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-cyan-600 bg-cyan-100 flex items-center gap-1" title="冷所保存">
+                          <img src="/cold.png" alt="" className="w-3.5 h-3.5 object-contain" />
+                          冷所
                         </span>
                       ) : (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded text-orange-600 bg-orange-100 flex items-center gap-1" title="室温保存">
-                          🏠 室温
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-orange-600 bg-orange-100 flex items-center gap-1" title="室温保存">
+                          <img src="/room.png" alt="" className="w-3.5 h-3.5 object-contain" />
+                          室温
                         </span>
                       )}
                     </div>
@@ -594,9 +597,9 @@ export default function Home() {
                           return (
                             <span
                               key={t}
-                              className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border flex items-center gap-0.5 ${info.color}`}
+                              className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border flex items-center gap-1 ${info.color}`}
                             >
-                              <span>{info.icon}</span>
+                              <img src={info.icon} alt="" className="w-3.5 h-3.5 object-contain" />
                               <span>{info.label}</span>
                             </span>
                           );
@@ -684,12 +687,14 @@ export default function Home() {
                         {getTypeLabel(med.type)}
                       </span>
                       {med.storage === "cold" ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded text-cyan-600 bg-cyan-100 flex items-center gap-1" title="冷所保存">
-                          ❄️ 冷所
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-cyan-600 bg-cyan-100 flex items-center gap-1" title="冷所保存">
+                          <img src="/cold.png" alt="" className="w-3.5 h-3.5 object-contain" />
+                          冷所
                         </span>
                       ) : (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded text-orange-600 bg-orange-100 flex items-center gap-1" title="室温保存">
-                          🏠 室温
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-orange-600 bg-orange-100 flex items-center gap-1" title="室温保存">
+                          <img src="/room.png" alt="" className="w-3.5 h-3.5 object-contain" />
+                          室温
                         </span>
                       )}
                     </div>
@@ -706,9 +711,9 @@ export default function Home() {
                           return (
                             <span
                               key={t}
-                              className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border flex items-center gap-0.5 ${info.color}`}
+                              className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border flex items-center gap-1 ${info.color}`}
                             >
-                              <span>{info.icon}</span>
+                              <img src={info.icon} alt="" className="w-3.5 h-3.5 object-contain" />
                               <span>{info.label}</span>
                             </span>
                           );

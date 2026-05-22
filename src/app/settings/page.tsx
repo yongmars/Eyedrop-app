@@ -221,11 +221,11 @@ export default function SettingsPage() {
 
   const getTimingLabel = (t: TimingType) => {
     switch (t) {
-      case "morning": return { label: "朝", icon: "☀️", color: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-955/20 dark:text-amber-400 dark:border-amber-900/30" };
-      case "lunch": return { label: "昼", icon: "🕛", color: "bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-955/20 dark:text-sky-400 dark:border-sky-900/30" };
-      case "dinner": return { label: "夕", icon: "🌆", color: "bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-955/20 dark:text-orange-400 dark:border-orange-900/30" };
-      case "bedtime": return { label: "就寝前", icon: "🌙", color: "bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-955/20 dark:text-indigo-400 dark:border-indigo-900/30" };
-      case "as_needed": return { label: "頓服", icon: "💊", color: "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-955/20 dark:text-purple-400 dark:border-purple-900/30" };
+      case "morning": return { label: "朝", icon: "/morning.png", color: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-955/20 dark:text-amber-400 dark:border-amber-900/30" };
+      case "lunch": return { label: "昼", icon: "/lunch.png", color: "bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-955/20 dark:text-sky-400 dark:border-sky-900/30" };
+      case "dinner": return { label: "夕", icon: "/dinner.png", color: "bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-955/20 dark:text-orange-400 dark:border-orange-900/30" };
+      case "bedtime": return { label: "就寝前", icon: "/bedtime.png", color: "bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-955/20 dark:text-indigo-400 dark:border-indigo-900/30" };
+      case "as_needed": return { label: "頓用", icon: "/as_needed.png", color: "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-955/20 dark:text-purple-400 dark:border-purple-900/30" };
     }
   };
 
@@ -442,14 +442,28 @@ export default function SettingsPage() {
             <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
               保管場所
             </label>
-            <select
-              value={newStorage}
-              onChange={(e) => setNewStorage(e.target.value as StorageType)}
-              className="w-full p-4 text-base border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-slate-900 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 dark:text-white min-h-[48px]"
-            >
-              <option value="room">🏠 室温保存</option>
-              <option value="cold">❄️ 冷所保存（冷蔵庫）</option>
-            </select>
+            <div className="grid grid-cols-2 gap-2">
+              {(["room", "cold"] as const).map((storage) => {
+                const label = { room: "室温保存", cold: "冷所保存" }[storage];
+                const icon = { room: "/room.png", cold: "/cold.png" }[storage];
+                const isActive = newStorage === storage;
+                return (
+                  <button
+                    key={storage}
+                    type="button"
+                    onClick={() => setNewStorage(storage)}
+                    className={`py-3.5 px-2 text-sm font-bold rounded-2xl border transition-all cursor-pointer min-h-[48px] flex flex-col items-center justify-center gap-1
+                      ${isActive
+                        ? "bg-blue-500 text-white border-blue-500 shadow-md shadow-blue-500/20"
+                        : "bg-gray-50 text-slate-700 border-gray-200 dark:bg-slate-900 dark:text-slate-300 dark:border-gray-700 hover:border-blue-300"
+                      }`}
+                  >
+                    <img src={icon} alt="" className="w-8 h-8 object-contain flex-shrink-0" />
+                    <span>{label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* 点眼タイミング */}
@@ -459,11 +473,11 @@ export default function SettingsPage() {
             </label>
             <div className="space-y-3">
               {([
-                { value: "morning", label: "朝（起床時）", icon: "☀️" },
-                { value: "lunch", label: "昼", icon: "🕛" },
-                { value: "dinner", label: "夕", icon: "🌆" },
-                { value: "bedtime", label: "就寝前", icon: "🌙" },
-                { value: "as_needed", label: "頓服（症状に合わせて）", icon: "💊" },
+                { value: "morning", label: "朝（起床時）", icon: "/morning.png" },
+                { value: "lunch", label: "昼", icon: "/lunch.png" },
+                { value: "dinner", label: "夕", icon: "/dinner.png" },
+                { value: "bedtime", label: "就寝前", icon: "/bedtime.png" },
+                { value: "as_needed", label: "頓用（症状に合わせて）", icon: "/as_needed.png" },
               ] as const).map((opt) => {
                 const isChecked = newTimings.includes(opt.value);
                 return (
@@ -482,7 +496,7 @@ export default function SettingsPage() {
                       className="w-6 h-6 rounded border-gray-300 dark:border-gray-750 text-blue-600 focus:ring-blue-500 cursor-pointer flex-shrink-0"
                     />
                     <div className="flex items-center gap-2">
-                      <span className="text-lg">{opt.icon}</span>
+                      <img src={opt.icon} alt="" className="w-8 h-8 object-contain flex-shrink-0" />
                       <span className="text-base font-bold text-slate-700 dark:text-slate-200">
                         {opt.label}
                       </span>
@@ -570,12 +584,14 @@ export default function SettingsPage() {
                           {getTypeLabel(med.type)}
                         </span>
                         {med.storage === "cold" ? (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded text-cyan-600 bg-cyan-100 flex items-center gap-1">
-                            ❄️ 冷所
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-cyan-600 bg-cyan-100 flex items-center gap-1" title="冷所保存">
+                            <img src="/cold.png" alt="" className="w-3.5 h-3.5 object-contain" />
+                            冷所
                           </span>
                         ) : (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded text-orange-600 bg-orange-100 flex items-center gap-1">
-                            🏠 室温
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-orange-600 bg-orange-100 flex items-center gap-1" title="室温保存">
+                            <img src="/room.png" alt="" className="w-3.5 h-3.5 object-contain" />
+                            室温
                           </span>
                         )}
                       </div>
@@ -595,9 +611,9 @@ export default function SettingsPage() {
                             return (
                               <span
                                 key={t}
-                                className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border flex items-center gap-0.5 ${info.color}`}
+                                className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border flex items-center gap-1 ${info.color}`}
                               >
-                                <span>{info.icon}</span>
+                                <img src={info.icon} alt="" className="w-3.5 h-3.5 object-contain" />
                                 <span>{info.label}</span>
                               </span>
                             );

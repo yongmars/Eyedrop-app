@@ -1,0 +1,57 @@
+# GitHub Pages デプロイ用ワークフロー
+name: Deploy Next.js to Pages
+
+on:
+  push:
+    branches: ["main"]
+
+  # 手動実行用
+  workflow_dispatch:
+
+# 必要最小限の権限を設定
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時実行制限（進行中の別のデプロイがある場合はキャンセルする）
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  # ビルドおよびデプロイジョブ
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build with Next.js
+        run: npm run build
+        env:
+          GITHUB_ACTIONS: "true"
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./out
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
