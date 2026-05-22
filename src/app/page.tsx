@@ -444,13 +444,6 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-full bg-gray-50 dark:bg-gray-900">
-      {/* 画面上部にデバッグログを強制表示（最前面） */}
-      <div className="fixed top-0 left-0 w-full bg-black/80 text-green-400 font-mono text-[10px] p-2 z-[9999] pointer-events-none">
-        {debugLog.map((log, i) => (
-          <div key={i}>{log}</div>
-        ))}
-      </div>
-
       {/* 画面上部：ガイドエリア（固定） */}
       <div className="sticky top-0 z-20 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm pt-14 pb-4 px-6 flex-shrink-0 border-b border-gray-200 dark:border-gray-800 shadow-sm animate-slide-in-fast">
         <header className="w-full mb-4 text-center flex justify-between items-center">
