@@ -132,12 +132,7 @@ export default function Home() {
       setMedicines(sortMedicines(initialMedicines));
     }
 
-    const savedTiming = localStorage.getItem("eye-drop-selectedTiming");
-    if (savedTiming && ["morning", "lunch", "dinner", "bedtime"].includes(savedTiming)) {
-      setSelectedTiming(savedTiming as TabTimingType);
-    } else {
-      setSelectedTiming(getInitialTiming());
-    }
+    setSelectedTiming(getInitialTiming());
 
     const savedStates = localStorage.getItem("eye-drop-timingStates");
     if (savedStates) {
@@ -163,11 +158,9 @@ export default function Home() {
       const initialChar = getCharacterByTime(hour);
       setCharacter(initialChar);
 
-      // localStorageロード後のselectedTimingを取得
-      const savedTiming = localStorage.getItem("eye-drop-selectedTiming");
-      const currentTab = (savedTiming && ["morning", "lunch", "dinner", "bedtime"].includes(savedTiming))
-        ? (savedTiming as TabTimingType)
-        : getInitialTiming();
+      // 起動時は常に現在時刻に対応したタブに強制移動
+      const currentTab = getInitialTiming();
+      setSelectedTiming(currentTab);
 
       // timingStatesの初期値をlocalStorageから読み取った値で確認
       let localStates = timingStates;
