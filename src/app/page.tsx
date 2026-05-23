@@ -42,6 +42,26 @@ interface TimingState {
 }
 
 export default function Home() {
+  const greetingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const startGreeting = () => {
+    if (greetingTimerRef.current) {
+      clearTimeout(greetingTimerRef.current);
+    }
+    setShowGreeting(true);
+    greetingTimerRef.current = setTimeout(() => {
+      setShowGreeting(false);
+    }, 3000);
+  };
+
+  const stopGreeting = () => {
+    if (greetingTimerRef.current) {
+      clearTimeout(greetingTimerRef.current);
+      greetingTimerRef.current = null;
+    }
+    setShowGreeting(false);
+  };
+
   const getTimingLabel = (t: TimingType) => {
     switch (t) {
       case "morning": return { label: "朝", icon: "/morning.webp", color: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-955/20 dark:text-amber-400 dark:border-amber-900/30" };
@@ -83,7 +103,7 @@ export default function Home() {
 
   const [message, setMessage] = useState("忘れずに目薬をさしましょう！");
   const [character, setCharacter] = useState<"saku" | "lux" | "noct">("lux");
-  const [greetingPhase, setGreetingPhase] = useState<"phase1" | "phase2" | "done">("phase1");
+  const [showGreeting, setShowGreeting] = useState(false);
   const [shaken, setShaken] = useState(false);
 
   // デバッグ用ログ
@@ -174,16 +194,12 @@ export default function Home() {
       }
 
       const currentState = localStates[currentTab];
-      const isPending = currentState ? currentState.status === "pending" : true;
+      const isInitialPending = currentState ? (currentState.currentIndex === 0 && currentState.status === "pending") : true;
 
-      if (isPending) {
-        setGreetingPhase("phase1");
-        const timer = setTimeout(() => {
-          setGreetingPhase("phase2");
-        }, 3000);
-        return () => clearTimeout(timer);
+      if (isInitialPending) {
+        startGreeting();
       } else {
-        setGreetingPhase("done");
+        stopGreeting();
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -212,9 +228,6 @@ export default function Home() {
   useEffect(() => {
     if (!isMounted) return;
 
-    // タブが切り替わったら起動時挨拶は終了
-    setGreetingPhase("done");
-
     if (selectedTiming === "morning") {
       setCharacter("saku");
     } else if (selectedTiming === "lunch") {
@@ -222,6 +235,14 @@ export default function Home() {
     } else {
       setCharacter("noct");
     }
+
+    const currentState = timingStates[selectedTiming];
+    if (currentState && currentState.currentIndex === 0 && currentState.status === "pending") {
+      startGreeting();
+    } else {
+      stopGreeting();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTiming, isMounted]);
 
   // タイマー処理 (すべての時間帯をバックグラウンドで毎秒監視)
@@ -289,65 +310,45 @@ export default function Home() {
       case "bedtime": timingLabel = "就寝前"; break;
     }
 
-    // 起動時の挨拶フェーズ中
-    if (greetingPhase === "phase1" || greetingPhase === "phase2") {
-      const medName = getNextMedicineName(selectedTiming);
+    // 最初の挨拶フェーズ中
+    if (showGreeting) {
       if (selectedTiming === "morning") {
-        if (greetingPhase === "phase1") {
-          setMessage("おはようございます。朝の点眼の時間です。");
-        } else {
-          setMessage(`次は、${medName}をさしましょうか。`);
-        }
+        setMessage("おはようございます。朝の時間の点眼です。");
       } else if (selectedTiming === "lunch") {
-        if (greetingPhase === "phase1") {
-          setMessage("こんにちは。昼の点眼の時間だよ");
-        } else {
-          setMessage(`次は、${medName}だよ！がんばろー！`);
-        }
+        setMessage("こんにちは。昼の時間の点眼だよ");
       } else if (selectedTiming === "dinner") {
-        if (greetingPhase === "phase1") {
-          setMessage("こんばんは。夕の点眼の時間だよ");
-        } else {
-          setMessage(`次は、${medName}をさしてゆっくりしよう。`);
-        }
+        setMessage("こんばんは。夕の時間の点眼だよ");
       } else { // bedtime
-        if (greetingPhase === "phase1") {
-          setMessage("就寝前の点眼の時間だよ");
-        } else {
-          setMessage(`次は、${medName}をさしてゆっくり休もう。`);
-        }
+        setMessage("今日もおつかれさま。就寝前の時間の点眼だよ");
       }
       return;
     }
 
     if (currentState.status === "good" || currentState.currentIndex >= sortedNormal.length) {
-      setMessage(`お疲れ様！\n${timingLabel}の点眼は全部終わったよ！`);
+      setMessage("おつかれさま、全部終わったよ");
     } else if (currentState.status === "waiting") {
-      setMessage("次の目薬まで5分待ろう！");
+      setMessage("次の点眼まで５分待とう");
     } else if (currentState.status === "towel") {
       setMessage("⚠️ 点眼後は周りを拭き取ってね！");
     } else if (currentState.status === "ok") {
-      setMessage("いいね！");
+      setMessage("いいね");
     } else if (currentState.status === "pending") {
       if (currentMed) {
         if (currentMed.type === "suspension") {
           setMessage(`次は ${currentMed.name} だよ！\nよく振ってからさしてね！`);
         } else {
-          setMessage(`次は ${currentMed.name} だよ！`);
+          setMessage(`次は ${currentMed.name} だよ`);
         }
       } else {
         setMessage(`${timingLabel}に登録されている目薬はないよ。`);
       }
     }
-  }, [selectedTiming, timingStates, medicines, greetingPhase, character]);
+  }, [selectedTiming, timingStates, medicines, showGreeting, character]);
 
   // キャラクター画像取得
   const getCharacterImage = () => {
-    if (greetingPhase === "phase1") {
+    if (showGreeting) {
       return `/${character}_main.webp`;
-    }
-    if (greetingPhase === "phase2") {
-      return `/${character}_ed.webp`;
     }
 
     const currentState = timingStates[selectedTiming];
@@ -365,7 +366,7 @@ export default function Home() {
       if (currentMed?.type === "suspension") {
         return `/${character}_sus.webp`;
       }
-      return `/${character}_main.webp`;
+      return `/${character}_ed.webp`;
     }
 
     return `/${character}_${currentState.status}.webp`; // ok, good, towel
@@ -377,7 +378,7 @@ export default function Home() {
 
   const handleNormalDrop = (med: Medicine) => {
     addDebug("1. handleNormalDrop start");
-    setGreetingPhase("done");
+    stopGreeting();
     const currentState = timingStates[selectedTiming];
     if (isProcessing) {
       addDebug("2. return early: isProcessing is true");
@@ -450,7 +451,7 @@ export default function Home() {
 
   const handleAsNeededDrop = (med: Medicine) => {
     addDebug("1. handleAsNeededDrop start");
-    setGreetingPhase("done");
+    stopGreeting();
     if (asNeededProcessing[med.id]) {
       addDebug("2. return early: already processing this ID");
       return;
@@ -568,7 +569,7 @@ export default function Home() {
           className="flex flex-col items-center justify-center h-[200px] relative cursor-pointer touch-manipulation"
           onClick={() => {
             addDebug("Char clicked(click)");
-            setGreetingPhase("done");
+            stopGreeting();
             setCharacter((prev) => (prev === "lux" ? "noct" : prev === "noct" ? "saku" : "lux"));
           }}
           onTouchStart={(e) => { touchStartY.current = e.touches[0].clientY; }}
@@ -577,7 +578,7 @@ export default function Home() {
             if (diff < 10) {
               e.preventDefault();
               addDebug("Char clicked(touch)");
-              setGreetingPhase("done");
+              stopGreeting();
               setCharacter((prev) => (prev === "lux" ? "noct" : prev === "noct" ? "saku" : "lux"));
             }
           }}
