@@ -52,25 +52,6 @@ export default function RootLayout({
           {/* Bottom Navigation Bar */}
           <Navbar />
         </div>
-        {/* Service Worker Registration */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                const registerSW = () => {
-                  navigator.serviceWorker.register('/sw.js')
-                    .then(reg => console.log('SW registered:', reg.scope))
-                    .catch(err => console.error('SW registration failed:', err));
-                };
-                if (document.readyState === 'complete') {
-                  registerSW();
-                } else {
-                  window.addEventListener('load', registerSW);
-                }
-              }
-            `,
-          }}
-        />
       </body>
     </html>
   );
