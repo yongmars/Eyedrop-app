@@ -292,21 +292,27 @@ export default function Home() {
     // 起動時の挨拶フェーズ中
     if (greetingPhase === "phase1" || greetingPhase === "phase2") {
       const medName = getNextMedicineName(selectedTiming);
-      if (character === "saku") {
+      if (selectedTiming === "morning") {
         if (greetingPhase === "phase1") {
           setMessage("おはようございます。朝の点眼の時間です。");
         } else {
           setMessage(`次は、${medName}をさしましょうか。`);
         }
-      } else if (character === "lux") {
+      } else if (selectedTiming === "lunch") {
         if (greetingPhase === "phase1") {
-          setMessage("こんにちは！お昼の点眼だよ！");
+          setMessage("こんにちは。昼の点眼の時間だよ");
         } else {
           setMessage(`次は、${medName}だよ！がんばろー！`);
         }
-      } else {
+      } else if (selectedTiming === "dinner") {
         if (greetingPhase === "phase1") {
-          setMessage("お疲れ様。夜（夕方）の点眼の時間だね。");
+          setMessage("こんばんは。夕の点眼の時間だよ");
+        } else {
+          setMessage(`次は、${medName}をさしてゆっくり休もう。`);
+        }
+      } else { // bedtime
+        if (greetingPhase === "phase1") {
+          setMessage("就寝前の点眼の時間だよ");
         } else {
           setMessage(`次は、${medName}をさしてゆっくり休もう。`);
         }
