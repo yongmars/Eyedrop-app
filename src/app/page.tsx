@@ -120,7 +120,7 @@ export default function Home() {
   // localStorageからのハイドレーション安全なデータ読み込み
   useEffect(() => {
     setIsMounted(true);
-    
+
     const savedMed = localStorage.getItem("my_medication_data");
     if (savedMed) {
       try {
@@ -148,13 +148,13 @@ export default function Home() {
   useEffect(() => {
     if (isMounted) {
       const hour = new Date().getHours();
-      
+
       const getCharacterByTime = (h: number): "saku" | "lux" | "noct" => {
         if (h >= 6 && h < 11) return "saku";
         if (h >= 11 && h < 16) return "lux";
         return "noct";
       };
-      
+
       const initialChar = getCharacterByTime(hour);
       setCharacter(initialChar);
 
@@ -172,7 +172,7 @@ export default function Home() {
           console.error("Failed to parse timingStates", e);
         }
       }
-      
+
       const currentState = localStates[currentTab];
       const isPending = currentState ? currentState.status === "pending" : true;
 
@@ -211,7 +211,7 @@ export default function Home() {
   // 時間帯（タブ）選択によるキャラクター切り替え
   useEffect(() => {
     if (!isMounted) return;
-    
+
     // タブが切り替わったら起動時挨拶は終了
     setGreetingPhase("done");
 
@@ -230,7 +230,7 @@ export default function Home() {
       setTimingStates((prev) => {
         let changed = false;
         const next = { ...prev };
-        
+
         (Object.keys(next) as TabTimingType[]).forEach((t) => {
           const state = next[t];
           if (state.status === "waiting") {
@@ -247,7 +247,7 @@ export default function Home() {
               );
               const sortedNormal = sortMedicines(tNormalMeds);
               const nextIndex = state.currentIndex + 1;
-              
+
               if (nextIndex >= sortedNormal.length) {
                 next[t] = {
                   currentIndex: nextIndex,
@@ -264,7 +264,7 @@ export default function Home() {
             }
           }
         });
-        
+
         return changed ? next : prev;
       });
     }, 1000);
@@ -308,7 +308,7 @@ export default function Home() {
         if (greetingPhase === "phase1") {
           setMessage("こんばんは。夕の点眼の時間だよ");
         } else {
-          setMessage(`次は、${medName}をさしてゆっくり休もう。`);
+          setMessage(`次は、${medName}をさしてゆっくりしよう。`);
         }
       } else { // bedtime
         if (greetingPhase === "phase1") {
@@ -361,7 +361,7 @@ export default function Home() {
       );
       const sortedNormal = sortMedicines(tNormalMeds);
       const currentMed = sortedNormal[currentState.currentIndex];
-      
+
       if (currentMed?.type === "suspension") {
         return `/${character}_sus.webp`;
       }
@@ -433,7 +433,7 @@ export default function Home() {
         const state = prev[selectedTiming];
         const nextIndex = state.currentIndex;
         const hasNext = nextIndex < sortedNormal.length - 1;
-        
+
         return {
           ...prev,
           [selectedTiming]: {
@@ -553,7 +553,7 @@ export default function Home() {
       <div className="sticky top-0 z-20 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm pt-14 pb-4 px-6 flex-shrink-0 border-b border-gray-200 dark:border-gray-800 shadow-sm animate-slide-in-fast">
         <header className="w-full mb-4 text-center flex justify-between items-center">
           <div className="w-12"></div>
-          
+
           <h1 className="text-xl font-bold text-slate-800 dark:text-white">
             今日の点眼予定
           </h1>
@@ -619,14 +619,14 @@ export default function Home() {
               (m) => m.timings?.includes(tab.type) && !m.timings?.includes("as_needed")
             );
             const isTabDone = tNormalMeds.length > 0 && (tState.status === "good" || tState.currentIndex >= tNormalMeds.length);
-            
+
             return (
               <button
                 key={tab.type}
                 onClick={() => setSelectedTiming(tab.type)}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl transition-all duration-300 touch-manipulation cursor-pointer relative
-                  ${isActive 
-                    ? `${tab.activeColor} scale-[1.03] shadow-md font-bold` 
+                  ${isActive
+                    ? `${tab.activeColor} scale-[1.03] shadow-md font-bold`
                     : "text-slate-600 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-700"
                   }`}
               >
@@ -652,13 +652,13 @@ export default function Home() {
       <div className="px-6 py-6 space-y-4">
         {getFilteredMedicines().map((med) => {
           const isAsNeeded = med.timings?.includes("as_needed");
-          
+
           if (isAsNeeded) {
             const medStatus = asNeededStatus[med.id] || "pending";
             const isProcessingThis = !!asNeededProcessing[med.id];
             const isDoneFeedback = medStatus === "ok" || medStatus === "towel";
             const isShakenChecked = !!asNeededShaken[med.id];
-            
+
             return (
               <div
                 key={med.id}
@@ -690,7 +690,7 @@ export default function Home() {
                       {med.name}
                     </h2>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{med.instruction}</p>
-                    
+
                     {med.timings && med.timings.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2.5">
                         {med.timings.map((t) => {
@@ -736,8 +736,8 @@ export default function Home() {
                     onClick={() => handleAsNeededDrop(med)}
                     disabled={isProcessingThis}
                     className={`w-full font-bold text-base py-3.5 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer min-h-[48px]
-                      ${isProcessingThis 
-                        ? "bg-purple-400 text-white cursor-default pointer-events-none" 
+                      ${isProcessingThis
+                        ? "bg-purple-400 text-white cursor-default pointer-events-none"
                         : isDoneFeedback
                           ? "bg-green-500 text-white shadow-green-500/30"
                           : "bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white shadow-purple-600/30"}`}
@@ -764,19 +764,19 @@ export default function Home() {
             const sortedNormal = sortMedicines(tNormalMeds);
             const idxInNormal = sortedNormal.findIndex(m => m.id === med.id);
             const currentState = timingStates[selectedTiming];
-            
+
             const isActive = idxInNormal === currentState.currentIndex && currentState.status !== "waiting" && currentState.status !== "good";
             const isProcessingThis = isActive && isProcessing;
             const isPast = idxInNormal < currentState.currentIndex || currentState.status === "good";
-            
+
             return (
               <div
                 key={med.id}
                 className={`w-full rounded-3xl shadow-sm border p-5 relative transition-all duration-300 ${isActive
-                    ? "bg-white dark:bg-slate-800 border-blue-400 dark:border-blue-500 scale-100 opacity-100 ring-4 ring-blue-100 dark:ring-blue-900/50"
-                    : isPast
-                      ? "bg-gray-100 dark:bg-slate-800/50 border-transparent opacity-60 scale-[0.98]"
-                      : "bg-white/80 dark:bg-slate-800/80 border-gray-100 dark:border-gray-700 opacity-90 scale-[0.98]"
+                  ? "bg-white dark:bg-slate-800 border-blue-400 dark:border-blue-500 scale-100 opacity-100 ring-4 ring-blue-100 dark:ring-blue-900/50"
+                  : isPast
+                    ? "bg-gray-100 dark:bg-slate-800/50 border-transparent opacity-60 scale-[0.98]"
+                    : "bg-white/80 dark:bg-slate-800/80 border-gray-100 dark:border-gray-700 opacity-90 scale-[0.98]"
                   }`}
               >
                 <div className="flex justify-between items-start mb-4">
