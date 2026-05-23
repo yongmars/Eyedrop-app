@@ -44,11 +44,11 @@ interface TimingState {
 export default function Home() {
   const getTimingLabel = (t: TimingType) => {
     switch (t) {
-      case "morning": return { label: "朝", icon: "/morning.png", color: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-955/20 dark:text-amber-400 dark:border-amber-900/30" };
-      case "lunch": return { label: "昼", icon: "/lunch.png", color: "bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-955/20 dark:text-sky-400 dark:border-sky-900/30" };
-      case "dinner": return { label: "夕", icon: "/dinner.png", color: "bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-955/20 dark:text-orange-400 dark:border-orange-900/30" };
-      case "bedtime": return { label: "就寝前", icon: "/bedtime.png", color: "bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-955/20 dark:text-indigo-400 dark:border-indigo-900/30" };
-      case "as_needed": return { label: "頓用", icon: "/as_needed.png", color: "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-955/20 dark:text-purple-400 dark:border-purple-900/30" };
+      case "morning": return { label: "朝", icon: "/morning.webp", color: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-955/20 dark:text-amber-400 dark:border-amber-900/30" };
+      case "lunch": return { label: "昼", icon: "/lunch.webp", color: "bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-955/20 dark:text-sky-400 dark:border-sky-900/30" };
+      case "dinner": return { label: "夕", icon: "/dinner.webp", color: "bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-955/20 dark:text-orange-400 dark:border-orange-900/30" };
+      case "bedtime": return { label: "就寝前", icon: "/bedtime.webp", color: "bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-955/20 dark:text-indigo-400 dark:border-indigo-900/30" };
+      case "as_needed": return { label: "頓用", icon: "/as_needed.webp", color: "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-955/20 dark:text-purple-400 dark:border-purple-900/30" };
     }
   };
 
@@ -82,7 +82,8 @@ export default function Home() {
   const touchStartY = useRef(0); // スマホ用タップ判定
 
   const [message, setMessage] = useState("忘れずに目薬をさしましょう！");
-  const [character, setCharacter] = useState<"noct" | "lux">("lux");
+  const [character, setCharacter] = useState<"saku" | "lux" | "noct">("lux");
+  const [greetingPhase, setGreetingPhase] = useState<"phase1" | "phase2" | "done">("phase1");
   const [shaken, setShaken] = useState(false);
 
   // デバッグ用ログ
@@ -91,9 +92,26 @@ export default function Home() {
     setDebugLog((prev) => [...prev, msg].slice(-5));
   };
 
+  // 現在の時間帯で次にさす予定の薬名を取得するヘルパー関数
+  const getNextMedicineName = (timing: TabTimingType): string => {
+    const tNormalMeds = medicines.filter(
+      (med) => med.timings?.includes(timing) && !med.timings?.includes("as_needed")
+    );
+    const sortedNormal = sortMedicines(tNormalMeds);
+    const currentState = timingStates[timing];
+    const currentMed = sortedNormal[currentState?.currentIndex ?? 0];
+    if (currentMed) {
+      return currentMed.name;
+    }
+    if (medicines.length > 0) {
+      return medicines[0].name;
+    }
+    return "目薬";
+  };
+
   const getInitialTiming = (): TabTimingType => {
     const hour = new Date().getHours();
-    if (hour >= 5 && hour < 11) return "morning";
+    if (hour >= 6 && hour < 11) return "morning";
     if (hour >= 11 && hour < 16) return "lunch";
     if (hour >= 16 && hour < 20) return "dinner";
     return "bedtime";
@@ -131,6 +149,53 @@ export default function Home() {
     }
   }, []);
 
+  // 起動時の初期化および挨拶タイマー（pending状態のみ）
+  useEffect(() => {
+    if (isMounted) {
+      const hour = new Date().getHours();
+      
+      const getCharacterByTime = (h: number): "saku" | "lux" | "noct" => {
+        if (h >= 6 && h < 11) return "saku";
+        if (h >= 11 && h < 16) return "lux";
+        return "noct";
+      };
+      
+      const initialChar = getCharacterByTime(hour);
+      setCharacter(initialChar);
+
+      // localStorageロード後のselectedTimingを取得
+      const savedTiming = localStorage.getItem("eye-drop-selectedTiming");
+      const currentTab = (savedTiming && ["morning", "lunch", "dinner", "bedtime"].includes(savedTiming))
+        ? (savedTiming as TabTimingType)
+        : getInitialTiming();
+
+      // timingStatesの初期値をlocalStorageから読み取った値で確認
+      let localStates = timingStates;
+      const savedStates = localStorage.getItem("eye-drop-timingStates");
+      if (savedStates) {
+        try {
+          localStates = JSON.parse(savedStates);
+        } catch (e) {
+          console.error("Failed to parse timingStates", e);
+        }
+      }
+      
+      const currentState = localStates[currentTab];
+      const isPending = currentState ? currentState.status === "pending" : true;
+
+      if (isPending) {
+        setGreetingPhase("phase1");
+        const timer = setTimeout(() => {
+          setGreetingPhase("phase2");
+        }, 3000);
+        return () => clearTimeout(timer);
+      } else {
+        setGreetingPhase("done");
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMounted]);
+
   // ステート保存
   useEffect(() => {
     if (isMounted) {
@@ -150,14 +215,21 @@ export default function Home() {
     }
   }, [timingStates, isMounted]);
 
-  // 時間帯によるキャラクター初期設定・切り替え
+  // 時間帯（タブ）選択によるキャラクター切り替え
   useEffect(() => {
-    if (selectedTiming === "morning" || selectedTiming === "lunch") {
+    if (!isMounted) return;
+    
+    // タブが切り替わったら起動時挨拶は終了
+    setGreetingPhase("done");
+
+    if (selectedTiming === "morning") {
+      setCharacter("saku");
+    } else if (selectedTiming === "lunch") {
       setCharacter("lux");
     } else {
       setCharacter("noct");
     }
-  }, [selectedTiming]);
+  }, [selectedTiming, isMounted]);
 
   // タイマー処理 (すべての時間帯をバックグラウンドで毎秒監視)
   useEffect(() => {
@@ -224,10 +296,35 @@ export default function Home() {
       case "bedtime": timingLabel = "就寝前"; break;
     }
 
+    // 起動時の挨拶フェーズ中
+    if (greetingPhase === "phase1" || greetingPhase === "phase2") {
+      const medName = getNextMedicineName(selectedTiming);
+      if (character === "saku") {
+        if (greetingPhase === "phase1") {
+          setMessage("おはようございます。朝の点眼の時間です。");
+        } else {
+          setMessage(`次は、${medName}をさしましょうか。`);
+        }
+      } else if (character === "lux") {
+        if (greetingPhase === "phase1") {
+          setMessage("こんにちは！お昼の点眼だよ！");
+        } else {
+          setMessage(`次は、${medName}だよ！がんばろー！`);
+        }
+      } else {
+        if (greetingPhase === "phase1") {
+          setMessage("お疲れ様。夜（夕方）の点眼の時間だね。");
+        } else {
+          setMessage(`次は、${medName}をさしてゆっくり休もう。`);
+        }
+      }
+      return;
+    }
+
     if (currentState.status === "good" || currentState.currentIndex >= sortedNormal.length) {
       setMessage(`お疲れ様！\n${timingLabel}の点眼は全部終わったよ！`);
     } else if (currentState.status === "waiting") {
-      setMessage("次の目薬まで5分待とう！");
+      setMessage("次の目薬まで5分待ろう！");
     } else if (currentState.status === "towel") {
       setMessage("⚠️ 点眼後は周りを拭き取ってね！");
     } else if (currentState.status === "ok") {
@@ -243,13 +340,20 @@ export default function Home() {
         setMessage(`${timingLabel}に登録されている目薬はないよ。`);
       }
     }
-  }, [selectedTiming, timingStates, medicines]);
+  }, [selectedTiming, timingStates, medicines, greetingPhase, character]);
 
   // キャラクター画像取得
   const getCharacterImage = () => {
+    if (greetingPhase === "phase1") {
+      return `/${character}_main.webp`;
+    }
+    if (greetingPhase === "phase2") {
+      return `/${character}_ed.webp`;
+    }
+
     const currentState = timingStates[selectedTiming];
     if (currentState.status === "waiting") {
-      return character === "noct" ? "/noct_5min.png" : "/lux_5min.png";
+      return `/${character}_5min.webp`;
     }
 
     if (currentState.status === "pending") {
@@ -260,12 +364,12 @@ export default function Home() {
       const currentMed = sortedNormal[currentState.currentIndex];
       
       if (currentMed?.type === "suspension") {
-        return `/${character}_sus.png`;
+        return `/${character}_sus.webp`;
       }
-      return `/${character}_main.png`;
+      return `/${character}_main.webp`;
     }
 
-    return `/${character}_${currentState.status}.png`; // ok, good, towel
+    return `/${character}_${currentState.status}.webp`; // ok, good, towel
   };
 
   const getAnimationClass = () => {
@@ -274,6 +378,7 @@ export default function Home() {
 
   const handleNormalDrop = (med: Medicine) => {
     addDebug("1. handleNormalDrop start");
+    setGreetingPhase("done");
     const currentState = timingStates[selectedTiming];
     if (isProcessing) {
       addDebug("2. return early: isProcessing is true");
@@ -346,6 +451,7 @@ export default function Home() {
 
   const handleAsNeededDrop = (med: Medicine) => {
     addDebug("1. handleAsNeededDrop start");
+    setGreetingPhase("done");
     if (asNeededProcessing[med.id]) {
       addDebug("2. return early: already processing this ID");
       return;
@@ -436,10 +542,10 @@ export default function Home() {
   };
 
   const timingTabs: { type: TabTimingType; label: string; icon: string; activeColor: string }[] = [
-    { type: "morning", label: "朝", icon: "/morning.png", activeColor: "bg-amber-500 text-white shadow-amber-500/30" },
-    { type: "lunch", label: "昼", icon: "/lunch.png", activeColor: "bg-sky-500 text-white shadow-sky-500/30" },
-    { type: "dinner", label: "夕", icon: "/dinner.png", activeColor: "bg-orange-500 text-white shadow-orange-500/30" },
-    { type: "bedtime", label: "就寝前", icon: "/bedtime.png", activeColor: "bg-indigo-500 text-white shadow-indigo-500/30" },
+    { type: "morning", label: "朝", icon: "/morning.webp", activeColor: "bg-amber-500 text-white shadow-amber-500/30" },
+    { type: "lunch", label: "昼", icon: "/lunch.webp", activeColor: "bg-sky-500 text-white shadow-sky-500/30" },
+    { type: "dinner", label: "夕", icon: "/dinner.webp", activeColor: "bg-orange-500 text-white shadow-orange-500/30" },
+    { type: "bedtime", label: "就寝前", icon: "/bedtime.webp", activeColor: "bg-indigo-500 text-white shadow-indigo-500/30" },
   ];
 
   return (
@@ -463,7 +569,8 @@ export default function Home() {
           className="flex flex-col items-center justify-center h-[200px] relative cursor-pointer touch-manipulation"
           onClick={() => {
             addDebug("Char clicked(click)");
-            setCharacter((prev) => (prev === "lux" ? "noct" : "lux"));
+            setGreetingPhase("done");
+            setCharacter((prev) => (prev === "lux" ? "noct" : prev === "noct" ? "saku" : "lux"));
           }}
           onTouchStart={(e) => { touchStartY.current = e.touches[0].clientY; }}
           onTouchEnd={(e) => {
@@ -471,7 +578,8 @@ export default function Home() {
             if (diff < 10) {
               e.preventDefault();
               addDebug("Char clicked(touch)");
-              setCharacter((prev) => (prev === "lux" ? "noct" : "lux"));
+              setGreetingPhase("done");
+              setCharacter((prev) => (prev === "lux" ? "noct" : prev === "noct" ? "saku" : "lux"));
             }
           }}
         >
@@ -561,7 +669,7 @@ export default function Home() {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-300 flex items-center gap-1">
-                        <img src="/as_needed.png" alt="" className="w-3.5 h-3.5 object-contain" />
+                        <img src="/as_needed.webp" alt="" className="w-3.5 h-3.5 object-contain" />
                         頓用
                       </span>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded text-gray-500 bg-gray-200 dark:bg-gray-700 dark:text-gray-300">
@@ -569,12 +677,12 @@ export default function Home() {
                       </span>
                       {med.storage === "cold" ? (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-cyan-600 bg-cyan-100 flex items-center gap-1" title="冷所保存">
-                          <img src="/cold.png" alt="" className="w-3.5 h-3.5 object-contain" />
+                          <img src="/cold.webp" alt="" className="w-3.5 h-3.5 object-contain" />
                           冷所
                         </span>
                       ) : (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-orange-600 bg-orange-100 flex items-center gap-1" title="室温保存">
-                          <img src="/room.png" alt="" className="w-3.5 h-3.5 object-contain" />
+                          <img src="/room.webp" alt="" className="w-3.5 h-3.5 object-contain" />
                           室温
                         </span>
                       )}
@@ -683,12 +791,12 @@ export default function Home() {
                       </span>
                       {med.storage === "cold" ? (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-cyan-600 bg-cyan-100 flex items-center gap-1" title="冷所保存">
-                          <img src="/cold.png" alt="" className="w-3.5 h-3.5 object-contain" />
+                          <img src="/cold.webp" alt="" className="w-3.5 h-3.5 object-contain" />
                           冷所
                         </span>
                       ) : (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-orange-600 bg-orange-100 flex items-center gap-1" title="室温保存">
-                          <img src="/room.png" alt="" className="w-3.5 h-3.5 object-contain" />
+                          <img src="/room.webp" alt="" className="w-3.5 h-3.5 object-contain" />
                           室温
                         </span>
                       )}

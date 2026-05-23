@@ -221,11 +221,11 @@ export default function SettingsPage() {
 
   const getTimingLabel = (t: TimingType) => {
     switch (t) {
-      case "morning": return { label: "朝", icon: "/morning.png", color: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-955/20 dark:text-amber-400 dark:border-amber-900/30" };
-      case "lunch": return { label: "昼", icon: "/lunch.png", color: "bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-955/20 dark:text-sky-400 dark:border-sky-900/30" };
-      case "dinner": return { label: "夕", icon: "/dinner.png", color: "bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-955/20 dark:text-orange-400 dark:border-orange-900/30" };
-      case "bedtime": return { label: "就寝前", icon: "/bedtime.png", color: "bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-955/20 dark:text-indigo-400 dark:border-indigo-900/30" };
-      case "as_needed": return { label: "頓用", icon: "/as_needed.png", color: "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-955/20 dark:text-purple-400 dark:border-purple-900/30" };
+      case "morning": return { label: "朝", icon: "/morning.webp", color: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-955/20 dark:text-amber-400 dark:border-amber-900/30" };
+      case "lunch": return { label: "昼", icon: "/lunch.webp", color: "bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-955/20 dark:text-sky-400 dark:border-sky-900/30" };
+      case "dinner": return { label: "夕", icon: "/dinner.webp", color: "bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-955/20 dark:text-orange-400 dark:border-orange-900/30" };
+      case "bedtime": return { label: "就寝前", icon: "/bedtime.webp", color: "bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-955/20 dark:text-indigo-400 dark:border-indigo-900/30" };
+      case "as_needed": return { label: "頓用", icon: "/as_needed.webp", color: "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-955/20 dark:text-purple-400 dark:border-purple-900/30" };
     }
   };
 
@@ -399,21 +399,19 @@ export default function SettingsPage() {
             <div className="grid grid-cols-3 gap-2">
               {(["both", "left", "right"] as const).map((target) => {
                 const label = { both: "両目", left: "左目", right: "右目" }[target];
-                const icon = { both: "👁️👁️", left: "👁️ (左)", right: "(右) 👁️" }[target];
                 const isActive = eyeTarget === target;
                 return (
                   <button
                     key={target}
                     type="button"
                     onClick={() => setEyeTarget(target)}
-                    className={`py-3 px-2 text-sm font-bold rounded-2xl border transition-all cursor-pointer min-h-[48px] flex flex-col items-center justify-center gap-1
+                    className={`py-4 px-2 text-base font-bold rounded-2xl border transition-all cursor-pointer min-h-[48px] flex items-center justify-center
                       ${isActive
                         ? "bg-blue-500 text-white border-blue-500 shadow-md shadow-blue-500/20"
                         : "bg-gray-50 text-slate-700 border-gray-200 dark:bg-slate-900 dark:text-slate-300 dark:border-gray-700 hover:border-blue-300"
                       }`}
                   >
-                    <span className="text-base">{icon}</span>
-                    <span>{label}</span>
+                    {label}
                   </button>
                 );
               })}
@@ -445,20 +443,20 @@ export default function SettingsPage() {
             <div className="grid grid-cols-2 gap-2">
               {(["room", "cold"] as const).map((storage) => {
                 const label = { room: "室温保存", cold: "冷所保存" }[storage];
-                const icon = { room: "/room.png", cold: "/cold.png" }[storage];
+                const icon = { room: "/room.webp", cold: "/cold.webp" }[storage];
                 const isActive = newStorage === storage;
                 return (
                   <button
                     key={storage}
                     type="button"
                     onClick={() => setNewStorage(storage)}
-                    className={`py-3.5 px-2 text-sm font-bold rounded-2xl border transition-all cursor-pointer min-h-[48px] flex flex-col items-center justify-center gap-1
+                    className={`py-4 px-2 text-base font-bold rounded-2xl border transition-all cursor-pointer min-h-[48px] flex items-center justify-center gap-2
                       ${isActive
                         ? "bg-blue-500 text-white border-blue-500 shadow-md shadow-blue-500/20"
                         : "bg-gray-50 text-slate-700 border-gray-200 dark:bg-slate-900 dark:text-slate-300 dark:border-gray-700 hover:border-blue-300"
                       }`}
                   >
-                    <img src={icon} alt="" className="w-8 h-8 object-contain flex-shrink-0" />
+                    <img src={icon} alt="" className="w-6 h-6 object-contain flex-shrink-0" />
                     <span>{label}</span>
                   </button>
                 );
@@ -473,11 +471,11 @@ export default function SettingsPage() {
             </label>
             <div className="space-y-3">
               {([
-                { value: "morning", label: "朝（起床時）", icon: "/morning.png" },
-                { value: "lunch", label: "昼", icon: "/lunch.png" },
-                { value: "dinner", label: "夕", icon: "/dinner.png" },
-                { value: "bedtime", label: "就寝前", icon: "/bedtime.png" },
-                { value: "as_needed", label: "頓用（症状に合わせて）", icon: "/as_needed.png" },
+                { value: "morning", label: "朝（起床時）", icon: "/morning.webp" },
+                { value: "lunch", label: "昼", icon: "/lunch.webp" },
+                { value: "dinner", label: "夕", icon: "/dinner.webp" },
+                { value: "bedtime", label: "就寝前", icon: "/bedtime.webp" },
+                { value: "as_needed", label: "頓用（症状に合わせて）", icon: "/as_needed.webp" },
               ] as const).map((opt) => {
                 const isChecked = newTimings.includes(opt.value);
                 return (
@@ -585,12 +583,12 @@ export default function SettingsPage() {
                         </span>
                         {med.storage === "cold" ? (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-cyan-600 bg-cyan-100 flex items-center gap-1" title="冷所保存">
-                            <img src="/cold.png" alt="" className="w-3.5 h-3.5 object-contain" />
+                            <img src="/cold.webp" alt="" className="w-3.5 h-3.5 object-contain" />
                             冷所
                           </span>
                         ) : (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-orange-600 bg-orange-100 flex items-center gap-1" title="室温保存">
-                            <img src="/room.png" alt="" className="w-3.5 h-3.5 object-contain" />
+                            <img src="/room.webp" alt="" className="w-3.5 h-3.5 object-contain" />
                             室温
                           </span>
                         )}

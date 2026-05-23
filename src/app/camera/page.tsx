@@ -112,6 +112,11 @@ export default function CameraPage() {
           {imageSrc ? "撮り直す" : "カメラを起動する"}
         </button>
 
+        {/* 開発中（未実装）の注意書き */}
+        <p className="text-xs text-center text-amber-600 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-955/20 p-2.5 rounded-xl border border-amber-100 dark:border-amber-900/30">
+          ⚠️ 画像解析・自動登録機能は現在開発中（未実装）です
+        </p>
+
         {imageSrc && (
           <button
             onClick={handleAnalyze}
