@@ -288,16 +288,16 @@ export default function Home() {
             changed = true;
           }
         } else {
-          // お薬が登録されているが、インデックスがオーバーしている場合は good に
+          // お薬が登録されているが、インデックスがオーバーしている場合は範囲内に調整し、かつ完了状態にする
           if (next[t].currentIndex >= sortedNormal.length) {
-            if (next[t].status !== "good") {
-              next[t] = { ...next[t], status: "good" };
-              changed = true;
-            }
+            next[t] = { currentIndex: sortedNormal.length - 1, status: "good", timeLeft: 0 };
+            changed = true;
           } else {
-            // お薬があるのに status が good になっている場合は、お薬が追加されたとみなして pending に戻す
-            if (next[t].status === "good") {
-              next[t] = { currentIndex: 0, status: "pending", timeLeft: 300 };
+            // お薬が追加されたケースの判定：
+            // status が good（完了）になっているが、現在のインデックスが最終お薬インデックスに達していない場合
+            // 新しいお薬が最後に追加されたとみなして、追加分を点眼させるために pending（未完了）に戻します。
+            if (next[t].status === "good" && next[t].currentIndex < sortedNormal.length - 1) {
+              next[t] = { currentIndex: next[t].currentIndex + 1, status: "pending", timeLeft: 300 };
               changed = true;
             }
           }
