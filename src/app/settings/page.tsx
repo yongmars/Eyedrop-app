@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 type MedicineType = "water" | "suspension" | "gel" | "ointment";
 type StorageType = "room" | "cold";
@@ -64,6 +65,11 @@ export default function SettingsPage() {
   // 登録済みの目薬リスト用のステート
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [isMounted, setIsMounted] = useState(false);
+
+  // ヘルプ・アップデート・ライセンス用モーダルステート
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [isUpdateOpen, setIsUpdateOpen] = useState(false);
+  const [isLicenseOpen, setIsLicenseOpen] = useState(false);
 
   // アンマウント時にタイマーをクリーンアップ
   useEffect(() => {
@@ -368,9 +374,32 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col min-h-full bg-gray-50 dark:bg-gray-900">
+      {/* 画面最上部：独立したヘッダーエリア */}
+      <div className="w-full bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-gray-700 py-3 px-4 flex justify-between items-center z-30">
+        <div className="flex items-center gap-2">
+          <Image
+            src="/Daily_eyedrops192.png"
+            alt="ロゴ"
+            width={28}
+            height={28}
+            className="object-contain"
+          />
+          <span className="font-bold text-base text-slate-800 dark:text-white">
+            まいにち点眼
+          </span>
+        </div>
+        <button
+          onClick={() => setIsHelpOpen(true)}
+          className="w-8 h-8 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors font-bold text-lg cursor-pointer touch-manipulation"
+          title="アプリの使い方"
+        >
+          ？
+        </button>
+      </div>
+
       {/* 画面上部：ガイドエリア（固定） */}
-      <div className="sticky top-0 z-20 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm pt-14 pb-4 px-6 flex-shrink-0 border-b border-gray-200 dark:border-gray-800 shadow-sm animate-slide-in-fast">
-        <header className="w-full mb-4 text-center flex justify-between items-center">
+      <div className="sticky top-0 z-20 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm pt-4 pb-4 px-6 flex-shrink-0 border-b border-gray-200 dark:border-gray-800 shadow-sm animate-slide-in-fast">
+        <header className="w-full text-center flex justify-between items-center">
           <button
             onClick={() => router.push("/")}
             className="text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 px-3.5 py-2 rounded-xl touch-manipulation cursor-pointer min-h-[40px] flex items-center justify-center"
@@ -673,11 +702,46 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={handleResetAllData}
-                className="w-full py-3.5 px-4 border border-red-300 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-955/20 active:bg-red-100 dark:active:bg-red-900/30 text-red-600 dark:text-red-400 font-bold text-xs rounded-2xl transition-all cursor-pointer min-h-[44px] flex items-center justify-center gap-1.5"
+                className="w-full py-3.5 px-4 border border-red-300 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-955/20 active:bg-red-100 dark:active:bg-red-900/30 text-red-600 dark:text-red-400 font-bold text-xs rounded-2xl transition-all cursor-pointer min-h-[44px] flex items-center justify-center gap-1.5 mb-8"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                 ⚠️ アプリの全データを初期化する
               </button>
+            </div>
+
+            {/* アプリ情報エリア（フッター） */}
+            <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800 space-y-4">
+              <button
+                type="button"
+                onClick={() => setIsUpdateOpen(true)}
+                className="w-full py-3.5 px-4 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700/50 border border-gray-200 dark:border-gray-700 text-slate-700 dark:text-slate-200 font-bold text-sm rounded-2xl transition-all cursor-pointer min-h-[44px] flex items-center justify-between shadow-sm"
+              >
+                <span className="flex items-center gap-2">🆙 アップデート情報</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ver. 1.1.1</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsLicenseOpen(true)}
+                className="w-full py-3.5 px-4 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700/50 border border-gray-200 dark:border-gray-700 text-slate-700 dark:text-slate-200 font-bold text-sm rounded-2xl transition-all cursor-pointer min-h-[44px] flex items-center justify-between shadow-sm"
+              >
+                <span className="flex items-center gap-2">📄 ライセンス情報</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">▶</span>
+              </button>
+
+              {/* 製作者情報とリンク */}
+              <div className="text-center pt-4 text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1.5">
+                <span>作った人：</span>
+                <a
+                  href="https://note.com/note_yongmars"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline font-extrabold flex items-center gap-1"
+                >
+                  視能訓練士 ゆうまるす
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+              </div>
             </div>
           </div>
         </div>
@@ -703,6 +767,159 @@ export default function SettingsPage() {
           </button>
         </div>
       </div>
+
+      {/* 1. アプリの使い方（？ボタン）モーダル */}
+      {isHelpOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto custom-scrollbar animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-lg my-8 flex flex-col shadow-2xl relative overflow-hidden animate-scale-up">
+            {/* モーダルヘッダー */}
+            <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-slate-800 sticky top-0 z-10">
+              <h3 className="text-lg font-black text-slate-800 dark:text-white">目薬の登録・編集・削除のやり方</h3>
+              <button
+                onClick={() => setIsHelpOpen(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 flex items-center justify-center text-slate-500 dark:text-slate-300 font-bold cursor-pointer"
+                aria-label="閉じる"
+              >
+                ✕
+              </button>
+            </div>
+            {/* モーダルコンテンツ */}
+            <div className="p-6 overflow-y-auto max-h-[60vh] custom-scrollbar bg-white dark:bg-slate-800">
+              <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-left space-y-4">
+                <p className="font-extrabold text-blue-600 dark:text-blue-400">■ 1. 新しく目薬を追加する</p>
+                <p className="pl-2">
+                  画面最上部の「＋新しく目薬を登録する」に入力していきます。
+                  「目薬の名前」にお薬の名前を入力します。次に「対象の目（両目・右目・左目）」と「点眼する時間帯（朝・昼・夕・就寝前）」にチェックを入れて登録してください。
+                </p>
+                
+                <p className="font-extrabold text-blue-600 dark:text-blue-400 mt-4">■ 2. 登録した目薬の内容を変える</p>
+                <p className="pl-2">
+                  「登録済みの目薬一覧」のリストに, 登録した目薬があります。その中の編集したい目薬の「編集する」を押します。すると上部の編集画面に移動します。
+                  編集したい部分を修正し「更新内容を保存する」を押して保存します。
+                </p>
+                
+                <p className="font-extrabold text-blue-600 dark:text-blue-400 mt-4">■ ３. 登録した目薬を消す</p>
+                <p className="pl-2">
+                  「登録済みの目薬一覧」のリストの削除したい目薬の「この目薬を削除する」を押します。
+                  すると確認画面がでますので、「OK」を押すと削除されます。
+                </p>
+              </div>
+            </div>
+            {/* モーダルフッター */}
+            <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex justify-end bg-gray-50 dark:bg-slate-800/50 sticky bottom-0 z-10">
+              <button
+                onClick={() => setIsHelpOpen(false)}
+                className="w-full py-3.5 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold text-sm rounded-2xl transition-all shadow-md shadow-blue-500/20 cursor-pointer min-h-[44px]"
+              >
+                使い方を閉じる
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. アップデート情報モーダル */}
+      {isUpdateOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto custom-scrollbar animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-lg my-8 flex flex-col shadow-2xl relative overflow-hidden animate-scale-up">
+            {/* モーダルヘッダー */}
+            <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-slate-800 sticky top-0 z-10">
+              <h3 className="text-lg font-black text-slate-800 dark:text-white">アップデート履歴</h3>
+              <button
+                onClick={() => setIsUpdateOpen(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 flex items-center justify-center text-slate-500 dark:text-slate-300 font-bold cursor-pointer"
+                aria-label="閉じる"
+              >
+                ✕
+              </button>
+            </div>
+            {/* モーダルコンテンツ */}
+            <div className="p-6 overflow-y-auto max-h-[60vh] custom-scrollbar bg-white dark:bg-slate-800">
+              <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-left space-y-4">
+                <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
+                  <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.1.1</p>
+                  <p className="pl-2 text-xs text-slate-500 mt-1">・設定画面の下にいつでも見られる「使い方ボタン」等を新設。</p>
+                </div>
+                <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
+                  <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.1.0 (2026年5月)</p>
+                  <p className="pl-2 text-xs text-slate-500 mt-1">・点眼した履歴を表示する肉球スタンプカレンダーを実装。</p>
+                </div>
+                <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
+                  <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.0.4</p>
+                  <p className="pl-2 text-xs text-slate-500 mt-1">・PWAに対応。</p>
+                </div>
+                <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
+                  <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.0.3</p>
+                  <p className="pl-2 text-xs text-slate-500 mt-1">・画面の右上にいつでも見られる「使い方（？）ボタン」を新設。</p>
+                </div>
+                <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
+                  <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.0.2 (2026年5月)</p>
+                  <p className="pl-2 text-xs text-slate-500 mt-1">・朝昼夕就寝前の時間で自動で画面の遷移を実装</p>
+                </div>
+                <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
+                  <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.0.1 (2026年4月)</p>
+                  <p className="pl-2 text-xs text-slate-500 mt-1">・目薬が混ざるのを防ぐ「5分待機タイマー」機能を搭載。</p>
+                </div>
+                <div className="pb-1">
+                  <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.0.0 (2026年3月)</p>
+                  <p className="pl-2 text-xs text-slate-500 mt-1">
+                    ・『ノクトのまいにち点眼管理アプリ』が誕生！<br />
+                    ・毎日の点眼チェックと、2種類以上の複数点眼に対応。<br />
+                    ・１つ目の目薬の点眼が終わったら、つぎの目薬の表示になるさし忘れ防止UIに改善。<br />
+                    ・目薬の指す順番を自動で変更する機能を搭載。
+                  </p>
+                </div>
+              </div>
+            </div>
+            {/* モーダルフッター */}
+            <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex justify-end bg-gray-50 dark:bg-slate-800/50 sticky bottom-0 z-10">
+              <button
+                onClick={() => setIsUpdateOpen(false)}
+                className="w-full py-3.5 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold text-sm rounded-2xl transition-all shadow-md shadow-blue-500/20 cursor-pointer min-h-[44px]"
+              >
+                閉じる
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. ライセンス情報モーダル */}
+      {isLicenseOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto custom-scrollbar animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-lg my-8 flex flex-col shadow-2xl relative overflow-hidden animate-scale-up">
+            {/* モーダルヘッダー */}
+            <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-slate-800 sticky top-0 z-10">
+              <h3 className="text-lg font-black text-slate-800 dark:text-white">ライセンス・著作権について</h3>
+              <button
+                onClick={() => setIsLicenseOpen(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 flex items-center justify-center text-slate-500 dark:text-slate-300 font-bold cursor-pointer"
+                aria-label="閉じる"
+              >
+                ✕
+              </button>
+            </div>
+            {/* モーダルコンテンツ */}
+            <div className="p-6 overflow-y-auto max-h-[60vh] custom-scrollbar bg-white dark:bg-slate-800">
+              <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-left space-y-4">
+                <p className="font-extrabold text-slate-800 dark:text-white">© 2026 ゆうまるす/yongmars. All rights reserved.</p>
+                <p className="mt-4">
+                  本アプリに登場するキャラクター「ノクト」「ルクス」「朔」、およびその他のイラスト、アプリアイコン等は、すべて製作者「ゆうまるす」のオリジナル著作物です。画像の無断転載・複製・商用利用は固くお断りいたします。
+                </p>
+              </div>
+            </div>
+            {/* モーダルフッター */}
+            <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex justify-end bg-gray-50 dark:bg-slate-800/50 sticky bottom-0 z-10">
+              <button
+                onClick={() => setIsLicenseOpen(false)}
+                className="w-full py-3.5 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold text-sm rounded-2xl transition-all shadow-md shadow-blue-500/20 cursor-pointer min-h-[44px]"
+              >
+                閉じる
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
