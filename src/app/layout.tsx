@@ -24,6 +24,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "ノクトのまいにち点眼管理アプリ",
   description: "楽しく目薬の習慣をつけるアプリ",
+  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  env: {
+    NEXT_PUBLIC_BASE_PATH: isGithubActions ? "/Eyedrop-app" : "",
+  },
 };
 
 export default nextConfig;

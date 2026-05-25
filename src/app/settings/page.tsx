@@ -41,6 +41,7 @@ const initialMedicines: Medicine[] = [
 ];
 
 export default function SettingsPage() {
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
   const router = useRouter();
 
   // 登録フォーム用のステート
@@ -246,11 +247,11 @@ export default function SettingsPage() {
 
   const getTimingLabel = (t: TimingType) => {
     switch (t) {
-      case "morning": return { label: "朝", icon: "/morning.webp", color: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-955/20 dark:text-amber-400 dark:border-amber-900/30" };
-      case "lunch": return { label: "昼", icon: "/lunch.webp", color: "bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-955/20 dark:text-sky-400 dark:border-sky-900/30" };
-      case "dinner": return { label: "夕", icon: "/dinner.webp", color: "bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-955/20 dark:text-orange-400 dark:border-orange-900/30" };
-      case "bedtime": return { label: "就寝前", icon: "/bedtime.webp", color: "bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-955/20 dark:text-indigo-400 dark:border-indigo-900/30" };
-      case "as_needed": return { label: "頓用", icon: "/as_needed.webp", color: "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-955/20 dark:text-purple-400 dark:border-purple-900/30" };
+      case "morning": return { label: "朝", icon: `${basePath}/morning.webp`, color: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-955/20 dark:text-amber-400 dark:border-amber-900/30" };
+      case "lunch": return { label: "昼", icon: `${basePath}/lunch.webp`, color: "bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-955/20 dark:text-sky-400 dark:border-sky-900/30" };
+      case "dinner": return { label: "夕", icon: `${basePath}/dinner.webp`, color: "bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-955/20 dark:text-orange-400 dark:border-orange-900/30" };
+      case "bedtime": return { label: "就寝前", icon: `${basePath}/bedtime.webp`, color: "bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-955/20 dark:text-indigo-400 dark:border-indigo-900/30" };
+      case "as_needed": return { label: "頓用", icon: `${basePath}/as_needed.webp`, color: "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-955/20 dark:text-purple-400 dark:border-purple-900/30" };
     }
   };
 
@@ -378,7 +379,7 @@ export default function SettingsPage() {
       <div className="w-full bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-gray-700 py-3 px-4 flex justify-between items-center z-30">
         <div className="flex items-center gap-2">
           <Image
-            src="/Daily_eyedrops192.png"
+            src={`${basePath}/Daily_eyedrops192.png`}
             alt="ロゴ"
             width={28}
             height={28}
@@ -491,7 +492,7 @@ export default function SettingsPage() {
             <div className="grid grid-cols-2 gap-2">
               {(["room", "cold"] as const).map((storage) => {
                 const label = { room: "室温保存", cold: "冷所保存" }[storage];
-                const icon = { room: "/room.webp", cold: "/cold.webp" }[storage];
+                const icon = { room: `${basePath}/room.webp`, cold: `${basePath}/cold.webp` }[storage];
                 const isActive = newStorage === storage;
                 return (
                   <button
@@ -631,12 +632,12 @@ export default function SettingsPage() {
                         </span>
                         {med.storage === "cold" ? (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-cyan-600 bg-cyan-100 flex items-center gap-1" title="冷所保存">
-                            <img src="/cold.webp" alt="" className="w-3.5 h-3.5 object-contain" />
+                            <img src={`${basePath}/cold.webp`} alt="" className="w-3.5 h-3.5 object-contain" />
                             冷所
                           </span>
                         ) : (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-orange-600 bg-orange-100 flex items-center gap-1" title="室温保存">
-                            <img src="/room.webp" alt="" className="w-3.5 h-3.5 object-contain" />
+                            <img src={`${basePath}/room.webp`} alt="" className="w-3.5 h-3.5 object-contain" />
                             室温
                           </span>
                         )}

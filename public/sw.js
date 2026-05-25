@@ -1,9 +1,11 @@
 const CACHE_NAME = 'eyedrop-app-v1';
+const base = self.location.pathname.substring(0, self.location.pathname.lastIndexOf('/'));
+
 const ASSETS_TO_CACHE = [
-  '/',
-  '/manifest.webmanifest',
-  '/Daily_eyedrops192.png',
-  '/Daily_eyedrops512.png',
+  base + '/',
+  base + '/manifest.webmanifest',
+  base + '/Daily_eyedrops192.png',
+  base + '/Daily_eyedrops512.png',
 ];
 
 self.addEventListener('install', (event) => {
@@ -34,7 +36,7 @@ self.addEventListener('fetch', (event) => {
   // GETリクエスト以外、API、外部ドメインはキャッシュ対象外にして即時fetch
   if (
     event.request.method !== 'GET' || 
-    url.pathname.startsWith('/api') || 
+    url.pathname.startsWith(base + '/api') || 
     !url.origin.startsWith(self.location.origin)
   ) {
     event.respondWith(fetch(event.request));
@@ -58,7 +60,7 @@ self.addEventListener('fetch', (event) => {
           if (cachedResponse) {
             return cachedResponse;
           }
-          return caches.match('/');
+          return caches.match(base + '/');
         });
       })
   );

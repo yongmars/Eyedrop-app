@@ -34,27 +34,11 @@ export default function CameraPage() {
     setAnalysisResult(null);
 
     try {
-      // プレビュー用のBase64文字列（"data:image/jpeg;base64,..."）から
-      // 画像データ部分のみを抽出してAPIに送信することもできますが、
-      // 今回はそのまま送ってAPI側で処理する形にします。
-      const response = await fetch('/api/analyze-drop', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ image: imageSrc }),
-      });
-
-      const data = await response.json();
-      
-      if (response.ok) {
-        setAnalysisResult(data.result || "解析が完了しました！");
-      } else {
-        setAnalysisResult("解析に失敗しました。");
-        console.error(data.error);
-      }
+      // 実際のAPI呼び出しの代わりに、クライアントサイドでモック処理を行います（静的エクスポート対応）
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      setAnalysisResult("解析結果: ヒアルロン酸Na (※これはテスト用ダミーデータです)");
     } catch (error) {
-      console.error('API呼び出しエラー:', error);
+      console.error('画像解析エラー:', error);
       setAnalysisResult("エラーが発生しました。");
     } finally {
       setIsAnalyzing(false);

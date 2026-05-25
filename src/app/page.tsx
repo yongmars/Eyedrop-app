@@ -49,6 +49,12 @@ interface DailyHistory {
 }
 
 export default function Home() {
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+
+  // PWA インストールプロンプト用のステート
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isReadyToInstall, setIsReadyToInstall] = useState(false);
+
   const greetingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isLoaded = useRef(false);
 
@@ -72,11 +78,11 @@ export default function Home() {
 
   const getTimingLabel = (t: TimingType) => {
     switch (t) {
-      case "morning": return { label: "朝", icon: "/morning.webp", color: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-955/20 dark:text-amber-400 dark:border-amber-900/30" };
-      case "lunch": return { label: "昼", icon: "/lunch.webp", color: "bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-955/20 dark:text-sky-400 dark:border-sky-900/30" };
-      case "dinner": return { label: "夕", icon: "/dinner.webp", color: "bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-955/20 dark:text-orange-400 dark:border-orange-900/30" };
-      case "bedtime": return { label: "就寝前", icon: "/bedtime.webp", color: "bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-955/20 dark:text-indigo-400 dark:border-indigo-900/30" };
-      case "as_needed": return { label: "頓用", icon: "/as_needed.webp", color: "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-955/20 dark:text-purple-400 dark:border-purple-900/30" };
+      case "morning": return { label: "朝", icon: `${basePath}/morning.webp`, color: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-955/20 dark:text-amber-400 dark:border-amber-900/30" };
+      case "lunch": return { label: "昼", icon: `${basePath}/lunch.webp`, color: "bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-955/20 dark:text-sky-400 dark:border-sky-900/30" };
+      case "dinner": return { label: "夕", icon: `${basePath}/dinner.webp`, color: "bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-955/20 dark:text-orange-400 dark:border-orange-900/30" };
+      case "bedtime": return { label: "就寝前", icon: `${basePath}/bedtime.webp`, color: "bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-955/20 dark:text-indigo-400 dark:border-indigo-900/30" };
+      case "as_needed": return { label: "頓用", icon: `${basePath}/as_needed.webp`, color: "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-955/20 dark:text-purple-400 dark:border-purple-900/30" };
     }
   };
 
@@ -254,14 +260,44 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMounted]);
 
-  // Service Workerの登録
+  // Service Workerの登録と PWA インストールイベントの監視
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js')
+      navigator.serviceWorker.register(`${basePath}/sw.js`)
         .then((reg) => console.log('Service Worker registered with scope:', reg.scope))
         .catch((err) => console.error('Service Worker registration failed:', err));
     }
-  }, []);
+
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsReadyToInstall(true);
+      addDebug("PWA install prompt is ready");
+    };
+
+    const handleAppInstalled = () => {
+      setIsReadyToInstall(false);
+      setDeferredPrompt(null);
+      addDebug("PWA app installed successfully");
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleAppInstalled);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, [basePath]);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    addDebug(`PWA install user choice: ${outcome}`);
+    setDeferredPrompt(null);
+    setIsReadyToInstall(false);
+  };
 
   // ステート保存と整合性の維持
   useEffect(() => {
@@ -487,12 +523,12 @@ export default function Home() {
   // キャラクター画像取得
   const getCharacterImage = () => {
     if (showGreeting) {
-      return `/${character}_main.webp`;
+      return `${basePath}/${character}_main.webp`;
     }
 
     const currentState = timingStates[selectedTiming];
     if (currentState.status === "waiting") {
-      return `/${character}_5min.webp`;
+      return `${basePath}/${character}_5min.webp`;
     }
 
     if (currentState.status === "pending") {
@@ -503,12 +539,12 @@ export default function Home() {
       const currentMed = sortedNormal[currentState.currentIndex];
 
       if (currentMed?.type === "suspension") {
-        return `/${character}_sus.webp`;
+        return `${basePath}/${character}_sus.webp`;
       }
-      return `/${character}_ed.webp`;
+      return `${basePath}/${character}_ed.webp`;
     }
 
-    return `/${character}_${currentState.status}.webp`; // ok, good, towel
+    return `${basePath}/${character}_${currentState.status}.webp`; // ok, good, towel
   };
 
   const getAnimationClass = () => {
@@ -534,19 +570,15 @@ export default function Home() {
     setIsProcessing(true);
 
     try {
-      addDebug("4. fetching API...");
-      fetch("/api/log-drop", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "drop",
-          timestamp: new Date().toISOString(),
-          medicine: med.name,
-          timing: selectedTiming,
-        }),
-      }).catch(error => addDebug(`Fetch err: ${error.message}`));
+      addDebug("4. Mocking API log success");
+      console.log('Mock log-drop:', {
+        action: "drop",
+        timestamp: new Date().toISOString(),
+        medicine: med.name,
+        timing: selectedTiming,
+      });
     } catch (err) {
-      addDebug(`Sync err: ${err}`);
+      addDebug(`Mock err: ${err}`);
     }
 
     const needsWiping = med.requiresWiping;
@@ -606,19 +638,15 @@ export default function Home() {
     setAsNeededProcessing((prev) => ({ ...prev, [med.id]: true }));
 
     try {
-      addDebug("4. fetching API...");
-      fetch("/api/log-drop", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "drop",
-          timestamp: new Date().toISOString(),
-          medicine: med.name,
-          timing: "as_needed",
-        }),
-      }).catch(error => addDebug(`Fetch err: ${error.message}`));
+      addDebug("4. Mocking API log success");
+      console.log('Mock log-drop (as needed):', {
+        action: "drop",
+        timestamp: new Date().toISOString(),
+        medicine: med.name,
+        timing: "as_needed",
+      });
     } catch (err) {
-      addDebug(`Sync err: ${err}`);
+      addDebug(`Mock err: ${err}`);
     }
 
     const needsWiping = med.requiresWiping;
@@ -712,10 +740,10 @@ export default function Home() {
   };
 
   const timingTabs: { type: TabTimingType; label: string; icon: string; activeColor: string }[] = [
-    { type: "morning", label: "朝", icon: "/morning.webp", activeColor: "bg-amber-500 text-white shadow-amber-500/30" },
-    { type: "lunch", label: "昼", icon: "/lunch.webp", activeColor: "bg-sky-500 text-white shadow-sky-500/30" },
-    { type: "dinner", label: "夕", icon: "/dinner.webp", activeColor: "bg-orange-500 text-white shadow-orange-500/30" },
-    { type: "bedtime", label: "就寝前", icon: "/bedtime.webp", activeColor: "bg-indigo-500 text-white shadow-indigo-500/30" },
+    { type: "morning", label: "朝", icon: `${basePath}/morning.webp`, activeColor: "bg-amber-500 text-white shadow-amber-500/30" },
+    { type: "lunch", label: "昼", icon: `${basePath}/lunch.webp`, activeColor: "bg-sky-500 text-white shadow-sky-500/30" },
+    { type: "dinner", label: "夕", icon: `${basePath}/dinner.webp`, activeColor: "bg-orange-500 text-white shadow-orange-500/30" },
+    { type: "bedtime", label: "就寝前", icon: `${basePath}/bedtime.webp`, activeColor: "bg-indigo-500 text-white shadow-indigo-500/30" },
   ];
 
   return (
@@ -724,7 +752,7 @@ export default function Home() {
       <div className="w-full bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-gray-700 py-3 px-4 flex justify-between items-center z-30">
         <div className="flex items-center gap-2">
           <Image
-            src="/Daily_eyedrops192.png"
+            src={`${basePath}/Daily_eyedrops192.png`}
             alt="ロゴ"
             width={28}
             height={28}
@@ -734,13 +762,24 @@ export default function Home() {
             まいにち点眼
           </span>
         </div>
-        <button
-          onClick={() => setIsHelpOpen(true)}
-          className="text-xs font-bold text-slate-600 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 px-3 py-1.5 rounded-xl border border-gray-250 dark:border-gray-700 transition-all cursor-pointer touch-manipulation min-h-[32px] flex items-center justify-center gap-1"
-          title="アプリの使い方"
-        >
-          <span>？</span>使い方
-        </button>
+        <div className="flex gap-2">
+          {isReadyToInstall && (
+            <button
+              onClick={handleInstallClick}
+              className="text-xs font-bold text-white bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 px-3 py-1.5 rounded-xl transition-all cursor-pointer touch-manipulation min-h-[32px] flex items-center justify-center gap-1 animate-pulse"
+              title="アプリをインストール"
+            >
+              📥 インストール
+            </button>
+          )}
+          <button
+            onClick={() => setIsHelpOpen(true)}
+            className="text-xs font-bold text-slate-600 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 px-3 py-1.5 rounded-xl border border-gray-250 dark:border-gray-700 transition-all cursor-pointer touch-manipulation min-h-[32px] flex items-center justify-center gap-1"
+            title="アプリの使い方"
+          >
+            <span>？</span>使い方
+          </button>
+        </div>
       </div>
 
       {/* 画面上部：ガイドエリア（固定） */}
@@ -861,7 +900,7 @@ export default function Home() {
                     {/* カード最上部：スラッシュ区切りの属性・タイミング並び */}
                     <div className="flex items-center flex-wrap gap-1.5 text-xs text-slate-500 dark:text-slate-400 mb-3 border-b border-gray-100 dark:border-gray-700/50 pb-2">
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-300 flex items-center gap-1">
-                        <img src="/as_needed.webp" alt="" className="w-3.5 h-3.5 object-contain" />
+                        <img src={`${basePath}/as_needed.webp`} alt="" className="w-3.5 h-3.5 object-contain" />
                         頓用
                       </span>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded text-gray-500 bg-gray-200 dark:bg-gray-700 dark:text-gray-300">
@@ -869,12 +908,12 @@ export default function Home() {
                       </span>
                       {med.storage === "cold" ? (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-cyan-600 bg-cyan-100 flex items-center gap-1" title="冷所保存">
-                          <img src="/cold.webp" alt="" className="w-3.5 h-3.5 object-contain" />
+                          <img src={`${basePath}/cold.webp`} alt="" className="w-3.5 h-3.5 object-contain" />
                           冷所
                         </span>
                       ) : (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-orange-600 bg-orange-100 flex items-center gap-1" title="室温保存">
-                          <img src="/room.webp" alt="" className="w-3.5 h-3.5 object-contain" />
+                          <img src={`${basePath}/room.webp`} alt="" className="w-3.5 h-3.5 object-contain" />
                           室温
                         </span>
                       )}
@@ -995,12 +1034,12 @@ export default function Home() {
                       </span>
                       {med.storage === "cold" ? (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-cyan-600 bg-cyan-100 flex items-center gap-1" title="冷所保存">
-                          <img src="/cold.webp" alt="" className="w-3.5 h-3.5 object-contain" />
+                          <img src={`${basePath}/cold.webp`} alt="" className="w-3.5 h-3.5 object-contain" />
                           冷所
                         </span>
                       ) : (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-orange-600 bg-orange-100 flex items-center gap-1" title="室温保存">
-                          <img src="/room.webp" alt="" className="w-3.5 h-3.5 object-contain" />
+                          <img src={`${basePath}/room.webp`} alt="" className="w-3.5 h-3.5 object-contain" />
                           室温
                         </span>
                       )}
