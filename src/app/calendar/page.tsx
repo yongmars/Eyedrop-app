@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Navbar from "@/components/Navbar";
 import pawImg from "../../../public/paw.webp";
@@ -23,6 +24,7 @@ interface CalendarDay {
 }
 
 export default function CalendarPage() {
+  const router = useRouter();
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [history, setHistory] = useState<Record<string, DailyHistory>>({});
   const [isMounted, setIsMounted] = useState(false);
@@ -123,9 +125,22 @@ export default function CalendarPage() {
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
       {/* 画面上部ヘッダー（固定） */}
-      <header className="sticky top-0 z-20 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm pt-14 pb-4 px-6 border-b border-gray-200 dark:border-gray-800 shadow-sm flex flex-col items-center">
-        <h1 className="text-xl font-bold text-slate-800 dark:text-white">点眼履歴カレンダー</h1>
-        <p className="text-xs text-slate-400 mt-1">日々の点眼が完了した時間帯に🐾が押されます</p>
+      <header className="sticky top-0 z-20 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm pt-4 pb-4 px-6 border-b border-gray-200 dark:border-gray-800 shadow-sm flex flex-col items-center">
+        <div className="w-full flex justify-between items-center relative min-h-[40px]">
+          <button
+            onClick={() => router.push("/")}
+            className="text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 px-3.5 py-2 rounded-xl touch-manipulation cursor-pointer min-h-[40px] flex items-center justify-center"
+          >
+            戻る
+          </button>
+          
+          <h1 className="text-xl font-bold text-slate-800 dark:text-white absolute left-1/2 -translate-x-1/2 whitespace-nowrap">
+            点眼履歴カレンダー
+          </h1>
+
+          <div className="w-12"></div>
+        </div>
+        <p className="text-xs text-slate-400 mt-2">日々の点眼が完了した時間帯に🐾が押されます</p>
       </header>
 
       <main className="flex-1 px-4 py-6 max-w-lg mx-auto w-full space-y-6">

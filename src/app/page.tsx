@@ -736,10 +736,10 @@ export default function Home() {
         </div>
         <button
           onClick={() => setIsHelpOpen(true)}
-          className="w-8 h-8 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors font-bold text-lg cursor-pointer touch-manipulation"
+          className="text-xs font-bold text-slate-600 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 px-3 py-1.5 rounded-xl border border-gray-250 dark:border-gray-700 transition-all cursor-pointer touch-manipulation min-h-[32px] flex items-center justify-center gap-1"
           title="アプリの使い方"
         >
-          ？
+          <span>？</span>使い方
         </button>
       </div>
 
@@ -1172,13 +1172,13 @@ export default function Home() {
               </div>
             </div>
 
-            {/* フッター (つぶれ防止) */}
-            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-slate-800/50 flex justify-end flex-shrink-0">
+            {/* モーダルフッター */}
+            <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex justify-end bg-gray-50 dark:bg-slate-800/50 sticky bottom-0 z-10 w-full">
               <button
                 onClick={() => setIsHelpOpen(false)}
-                className="bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold text-sm px-6 py-2.5 rounded-xl shadow-md shadow-blue-500/20 transition-all cursor-pointer touch-manipulation min-h-[38px]"
+                className="w-full py-3.5 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold text-sm rounded-2xl transition-all shadow-md shadow-blue-500/20 cursor-pointer min-h-[44px]"
               >
-                閉じる
+                使い方を閉じる
               </button>
             </div>
           </div>

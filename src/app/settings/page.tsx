@@ -390,10 +390,10 @@ export default function SettingsPage() {
         </div>
         <button
           onClick={() => setIsHelpOpen(true)}
-          className="w-8 h-8 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors font-bold text-lg cursor-pointer touch-manipulation"
+          className="text-xs font-bold text-slate-600 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 px-3 py-1.5 rounded-xl border border-gray-250 dark:border-gray-700 transition-all cursor-pointer touch-manipulation min-h-[32px] flex items-center justify-center gap-1"
           title="アプリの使い方"
         >
-          ？
+          <span>？</span>使い方
         </button>
       </div>
 
@@ -774,7 +774,7 @@ export default function SettingsPage() {
           <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-lg my-8 flex flex-col shadow-2xl relative overflow-hidden animate-scale-up">
             {/* モーダルヘッダー */}
             <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-slate-800 sticky top-0 z-10">
-              <h3 className="text-lg font-black text-slate-800 dark:text-white">目薬の登録・編集・削除のやり方</h3>
+              <h3 className="text-lg font-black text-slate-800 dark:text-white">目薬の登録・編集・削除の方法</h3>
               <button
                 onClick={() => setIsHelpOpen(false)}
                 className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 flex items-center justify-center text-slate-500 dark:text-slate-300 font-bold cursor-pointer"
