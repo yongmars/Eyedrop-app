@@ -50,6 +50,7 @@ interface DailyHistory {
 
 export default function Home() {
   const greetingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isLoaded = useRef(false);
 
   const startGreeting = () => {
     if (greetingTimerRef.current) {
@@ -155,8 +156,6 @@ export default function Home() {
 
   // localStorageからのハイドレーション安全なデータ読み込み
   useEffect(() => {
-    setIsMounted(true);
-
     const savedMed = localStorage.getItem("my_medication_data");
     let currentMeds = initialMedicines;
     if (savedMed) {
@@ -208,6 +207,10 @@ export default function Home() {
     } else {
       localStorage.setItem("eye-drop-lastSavedDate", todayStr);
     }
+
+    // ロード完了をマーク
+    isLoaded.current = true;
+    setIsMounted(true);
   }, []);
 
   // 起動時の初期化および挨拶タイマー（pending状態のみ）
@@ -262,98 +265,101 @@ export default function Home() {
 
   // ステート保存と整合性の維持
   useEffect(() => {
-    if (isMounted) {
-      localStorage.setItem("my_medication_data", JSON.stringify(medicines));
+    // ロード完了前、またはマウント前は上書きを防ぐためスキップ
+    if (!isMounted || !isLoaded.current) return;
 
-      // お薬データの変更に合わせて timingStates の整合性を検証・補正
-      setTimingStates((prev) => {
-        let changed = false;
-        const next = { ...prev };
+    localStorage.setItem("my_medication_data", JSON.stringify(medicines));
 
-        (Object.keys(next) as TabTimingType[]).forEach((t) => {
-          const tNormalMeds = medicines.filter(
-            (m) => m.timings?.includes(t) && !m.timings?.includes("as_needed")
-          );
-          const sortedNormal = sortMedicines(tNormalMeds);
+    // お薬データの変更に合わせて timingStates の整合性を検証・補正
+    setTimingStates((prev) => {
+      let changed = false;
+      const next = { ...prev };
 
-          // お薬が登録されていない場合 -> 自動的に good にする
-          if (sortedNormal.length === 0) {
+      (Object.keys(next) as TabTimingType[]).forEach((t) => {
+        const tNormalMeds = medicines.filter(
+          (m) => m.timings?.includes(t) && !m.timings?.includes("as_needed")
+        );
+        const sortedNormal = sortMedicines(tNormalMeds);
+
+        // お薬が登録されていない場合 -> 自動的に good にする
+        if (sortedNormal.length === 0) {
+          if (next[t].status !== "good") {
+            next[t] = { currentIndex: 0, status: "good", timeLeft: 0 };
+            changed = true;
+          }
+        } else {
+          // お薬が登録されているが、インデックスがオーバーしている場合は good に
+          if (next[t].currentIndex >= sortedNormal.length) {
             if (next[t].status !== "good") {
-              next[t] = { currentIndex: 0, status: "good", timeLeft: 0 };
+              next[t] = { ...next[t], status: "good" };
               changed = true;
             }
           } else {
-            // お薬が登録されているが、インデックスがオーバーしている場合は good に
-            if (next[t].currentIndex >= sortedNormal.length) {
-              if (next[t].status !== "good") {
-                next[t] = { ...next[t], status: "good" };
-                changed = true;
-              }
-            } else {
-              // お薬があるのに status が good になっている場合は、お薬が追加されたとみなして pending に戻す
-              if (next[t].status === "good") {
-                next[t] = { currentIndex: 0, status: "pending", timeLeft: 300 };
-                changed = true;
-              }
+            // お薬があるのに status が good になっている場合は、お薬が追加されたとみなして pending に戻す
+            if (next[t].status === "good") {
+              next[t] = { currentIndex: 0, status: "pending", timeLeft: 300 };
+              changed = true;
             }
           }
-        });
-
-        return changed ? next : prev;
+        }
       });
-    }
+
+      return changed ? next : prev;
+    });
   }, [medicines, isMounted]);
 
   useEffect(() => {
-    if (isMounted) {
-      localStorage.setItem("eye-drop-selectedTiming", selectedTiming);
-    }
+    // ロード完了前、またはマウント前は上書きを防ぐためスキップ
+    if (!isMounted || !isLoaded.current) return;
+
+    localStorage.setItem("eye-drop-selectedTiming", selectedTiming);
   }, [selectedTiming, isMounted]);
 
   useEffect(() => {
-    if (isMounted) {
-      localStorage.setItem("eye-drop-timingStates", JSON.stringify(timingStates));
-      localStorage.setItem("eye-drop-lastSavedDate", getTodayString());
+    // ロード完了前、またはマウント前は上書きを防ぐためスキップ
+    if (!isMounted || !isLoaded.current) return;
 
-      // 各時間帯の status が "good" かどうかを判定して eye-drop-history に反映
-      const todayStr = getTodayString();
-      const savedHistory = localStorage.getItem("eye-drop-history");
-      let history: Record<string, DailyHistory> = {};
+    localStorage.setItem("eye-drop-timingStates", JSON.stringify(timingStates));
+    localStorage.setItem("eye-drop-lastSavedDate", getTodayString());
 
-      if (savedHistory) {
-        try {
-          history = JSON.parse(savedHistory);
-        } catch (e) {
-          console.error("Failed to parse eye-drop-history", e);
-        }
+    // 各時間帯の status が "good" かどうかを判定して eye-drop-history に反映
+    const todayStr = getTodayString();
+    const savedHistory = localStorage.getItem("eye-drop-history");
+    let history: Record<string, DailyHistory> = {};
+
+    if (savedHistory) {
+      try {
+        history = JSON.parse(savedHistory);
+      } catch (e) {
+        console.error("Failed to parse eye-drop-history", e);
       }
+    }
 
-      // 今日の履歴を取得または初期化
-      const todayHistory: DailyHistory = history[todayStr] || {};
+    // 今日の履歴を取得または初期化
+    const todayHistory: DailyHistory = history[todayStr] || {};
 
-      // 各時間帯が完了(good)しているかどうかをチェック
-      // dinner は DailyHistory の evening に対応
-      const newMorning = timingStates.morning.status === "good";
-      const newLunch = timingStates.lunch.status === "good";
-      const newEvening = timingStates.dinner.status === "good";
-      const newBedtime = timingStates.bedtime.status === "good";
+    // 各時間帯が完了(good)しているかどうかをチェック
+    // dinner は DailyHistory の evening に対応
+    const newMorning = timingStates.morning.status === "good";
+    const newLunch = timingStates.lunch.status === "good";
+    const newEvening = timingStates.dinner.status === "good";
+    const newBedtime = timingStates.bedtime.status === "good";
 
-      // 変化があった場合のみ履歴を更新して保存
-      if (
-        todayHistory.morning !== newMorning ||
-        todayHistory.lunch !== newLunch ||
-        todayHistory.evening !== newEvening ||
-        todayHistory.bedtime !== newBedtime
-      ) {
-        history[todayStr] = {
-          ...todayHistory,
-          morning: newMorning,
-          lunch: newLunch,
-          evening: newEvening,
-          bedtime: newBedtime,
-        };
-        localStorage.setItem("eye-drop-history", JSON.stringify(history));
-      }
+    // 変化があった場合のみ履歴を更新して保存
+    if (
+      todayHistory.morning !== newMorning ||
+      todayHistory.lunch !== newLunch ||
+      todayHistory.evening !== newEvening ||
+      todayHistory.bedtime !== newBedtime
+    ) {
+      history[todayStr] = {
+        ...todayHistory,
+        morning: newMorning,
+        lunch: newLunch,
+        evening: newEvening,
+        bedtime: newBedtime,
+      };
+      localStorage.setItem("eye-drop-history", JSON.stringify(history));
     }
   }, [timingStates, isMounted]);
 
