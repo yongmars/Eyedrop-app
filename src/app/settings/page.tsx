@@ -219,6 +219,25 @@ export default function SettingsPage() {
     }
   };
 
+  const getEyeTargetLabel = (med: Medicine): string => {
+    const isOintment = med.type === "ointment" || med.instruction.includes("塗布");
+    const actionLabel = isOintment ? "塗布" : "点眼";
+    
+    if (med.eyeTarget) {
+      switch (med.eyeTarget) {
+        case "both": return `両目${actionLabel}`;
+        case "right": return `右目${actionLabel}`;
+        case "left": return `左目${actionLabel}`;
+      }
+    }
+    
+    if (med.instruction.includes("両目")) return `両目${actionLabel}`;
+    if (med.instruction.includes("右目")) return `右目${actionLabel}`;
+    if (med.instruction.includes("left") || med.instruction.includes("左目")) return `左目${actionLabel}`;
+    
+    return `両目${actionLabel}`;
+  };
+
   const getTimingLabel = (t: TimingType) => {
     switch (t) {
       case "morning": return { label: "朝", icon: "/morning.webp", color: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-955/20 dark:text-amber-400 dark:border-amber-900/30" };
@@ -593,12 +612,15 @@ export default function SettingsPage() {
                           </span>
                         )}
                       </div>
-                      <h3 className="text-lg font-bold text-slate-800 dark:text-white">
-                        {med.name}
-                      </h3>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        指示: {med.instruction}
-                      </p>
+                      <div className="mt-2 space-y-1">
+                        <h3 className="text-lg font-bold text-slate-800 dark:text-white">
+                          {med.name}
+                        </h3>
+                        <div className={`text-lg font-extrabold flex items-center gap-1.5 ${med.timings?.includes("as_needed") ? "text-purple-600 dark:text-purple-400" : "text-blue-600 dark:text-blue-400"}`}>
+                          <span>💧</span>
+                          <span>{getEyeTargetLabel(med)}</span>
+                        </div>
+                      </div>
 
                       {/* タイミングバッジの表示 */}
                       {med.timings && med.timings.length > 0 && (

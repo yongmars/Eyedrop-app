@@ -85,6 +85,7 @@ export default function Home() {
   // ステート初期値
   const [medicines, setMedicines] = useState<Medicine[]>(initialMedicines);
   const [isMounted, setIsMounted] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   const [selectedTiming, setSelectedTiming] = useState<TabTimingType>("morning");
   const [timingStates, setTimingStates] = useState<Record<TabTimingType, TimingState>>({
@@ -536,6 +537,37 @@ export default function Home() {
     }
   };
 
+  const getEyeTargetLabel = (med: Medicine): string => {
+    const isOintment = med.type === "ointment" || med.instruction.includes("塗布");
+    const actionLabel = isOintment ? "塗布" : "点眼";
+    
+    if (med.eyeTarget) {
+      switch (med.eyeTarget) {
+        case "both": return `両目${actionLabel}`;
+        case "right": return `右目${actionLabel}`;
+        case "left": return `左目${actionLabel}`;
+      }
+    }
+    
+    if (med.instruction.includes("両目")) return `両目${actionLabel}`;
+    if (med.instruction.includes("右目")) return `右目${actionLabel}`;
+    if (med.instruction.includes("left") || med.instruction.includes("左目")) return `左目${actionLabel}`;
+    
+    return `両目${actionLabel}`;
+  };
+
+  const getFormattedDate = () => {
+    const today = new Date();
+    const month = today.getMonth() + 1;
+    const date = today.getDate();
+    const dayNames = ["日", "月", "火", "放", "金", "土"];
+    // 日月火水木金土ですね。タイポ防止で：
+    // ["日", "月", "火", "水", "木", "金", "土"]
+    const dayNamesCorrect = ["日", "月", "火", "水", "木", "金", "土"];
+    const day = dayNamesCorrect[today.getDay()];
+    return `${month}月${date}日（${day}）の点眼予定`;
+  };
+
   const getFilteredMedicines = (): Medicine[] => {
     const normalMeds = medicines.filter(
       (med) => med.timings?.includes(selectedTiming) && !med.timings?.includes("as_needed")
@@ -559,19 +591,40 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-full bg-gray-50 dark:bg-gray-900">
-      {/* 画面上部：ガイドエリア（固定） */}
-      <div className="sticky top-0 z-20 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm pt-14 pb-4 px-6 flex-shrink-0 border-b border-gray-200 dark:border-gray-800 shadow-sm animate-slide-in-fast">
-        <header className="w-full mb-4 text-center flex justify-between items-center">
-          <div className="w-12"></div>
+      {/* 画面最上部：独立したヘッダーエリア */}
+      <div className="w-full bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-gray-700 py-3 px-4 flex justify-between items-center z-30">
+        <div className="flex items-center gap-2">
+          <Image
+            src="/Daily_eyedrops192.png"
+            alt="ロゴ"
+            width={28}
+            height={28}
+            className="object-contain"
+          />
+          <span className="font-bold text-base text-slate-800 dark:text-white">
+            まいにち点眼
+          </span>
+        </div>
+        <button
+          onClick={() => setIsHelpOpen(true)}
+          className="w-8 h-8 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors font-bold text-lg cursor-pointer touch-manipulation"
+          title="アプリの使い方"
+        >
+          ？
+        </button>
+      </div>
 
-          <h1 className="text-xl font-bold text-slate-800 dark:text-white">
-            今日の点眼予定
+      {/* 画面上部：ガイドエリア（固定） */}
+      <div className="sticky top-0 z-20 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm pt-4 pb-4 px-6 flex-shrink-0 border-b border-gray-200 dark:border-gray-800 shadow-sm animate-slide-in-fast">
+        <header className="w-full mb-4 relative flex justify-center items-center min-h-[32px]">
+          <h1 className="text-lg sm:text-xl font-black text-slate-800 dark:text-white whitespace-nowrap text-center">
+            {getFormattedDate()}
           </h1>
 
           {/* Debug skip button if waiting */}
           {timingStates[selectedTiming].status === "waiting" ? (
-            <button onClick={skipTimer} className="text-xs text-blue-500 font-bold bg-blue-100 px-2 py-1 rounded touch-manipulation cursor-pointer">スキップ</button>
-          ) : <div className="w-12"></div>}
+            <button onClick={skipTimer} className="absolute right-0 text-xs text-blue-500 font-bold bg-blue-100 px-2 py-1 rounded touch-manipulation cursor-pointer">スキップ</button>
+          ) : null}
         </header>
 
         <div
@@ -675,9 +728,10 @@ export default function Home() {
                 className="w-full rounded-3xl shadow-sm border p-5 relative transition-all duration-300 bg-white dark:bg-slate-800 border-purple-200 dark:border-purple-900/40 ring-2 ring-purple-50 dark:ring-purple-950/20"
               >
                 <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-300 flex items-center gap-1">
+                  <div className="w-full">
+                    {/* カード最上部：スラッシュ区切りの属性・タイミング並び */}
+                    <div className="flex items-center flex-wrap gap-1.5 text-xs text-slate-500 dark:text-slate-400 mb-3 border-b border-gray-100 dark:border-gray-700/50 pb-2">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-300 flex items-center gap-1">
                         <img src="/as_needed.webp" alt="" className="w-3.5 h-3.5 object-contain" />
                         頓用
                       </span>
@@ -695,29 +749,40 @@ export default function Home() {
                           室温
                         </span>
                       )}
-                    </div>
-                    <h2 className="text-xl font-bold mt-1 text-slate-800 dark:text-white">
-                      {med.name}
-                    </h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{med.instruction}</p>
+                      
+                      <span className="text-gray-300 dark:text-gray-600 px-0.5">/</span>
 
-                    {med.timings && med.timings.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2.5">
-                        {med.timings.map((t) => {
-                          const info = getTimingLabel(t);
-                          if (!info) return null;
-                          return (
-                            <span
-                              key={t}
-                              className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border flex items-center gap-1 ${info.color}`}
-                            >
-                              <img src={info.icon} alt="" className="w-3.5 h-3.5 object-contain" />
-                              <span>{info.label}</span>
-                            </span>
-                          );
-                        })}
+                      {med.timings && med.timings.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {med.timings.map((t) => {
+                            const info = getTimingLabel(t);
+                            if (!info) return null;
+                            return (
+                              <span
+                                key={t}
+                                className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border flex items-center gap-1 ${info.color}`}
+                              >
+                                <img src={info.icon} alt="" className="w-3.5 h-3.5 object-contain" />
+                                <span>{info.label}</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 縦並びの2行配置 */}
+                    <div className="mt-2 space-y-1.5">
+                      {/* 1行目：お薬の名前 */}
+                      <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
+                        {med.name}
+                      </h2>
+                      {/* 2行目：点眼部位（薬名と同じくらいのサイズ、見やすい紫色） */}
+                      <div className="text-2xl font-extrabold text-purple-600 dark:text-purple-400 flex items-center gap-2">
+                        <span>💧</span>
+                        <span>{getEyeTargetLabel(med)}</span>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
 
@@ -790,9 +855,10 @@ export default function Home() {
                   }`}
               >
                 <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300">
+                  <div className="w-full">
+                    {/* カード最上部：スラッシュ区切りの属性・タイミング並び */}
+                    <div className="flex items-center flex-wrap gap-1.5 text-xs text-slate-500 dark:text-slate-400 mb-3 border-b border-gray-100 dark:border-gray-700/50 pb-2">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300">
                         {idxInNormal + 1}
                       </span>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded text-gray-500 bg-gray-200 dark:bg-gray-700 dark:text-gray-300">
@@ -809,29 +875,40 @@ export default function Home() {
                           室温
                         </span>
                       )}
-                    </div>
-                    <h2 className={`text-xl font-bold mt-1 ${isPast ? "line-through text-gray-400" : "text-slate-800 dark:text-white"}`}>
-                      {med.name}
-                    </h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{med.instruction}</p>
+                      
+                      <span className="text-gray-300 dark:text-gray-600 px-0.5">/</span>
 
-                    {med.timings && med.timings.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2.5">
-                        {med.timings.map((t) => {
-                          const info = getTimingLabel(t);
-                          if (!info) return null;
-                          return (
-                            <span
-                              key={t}
-                              className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border flex items-center gap-1 ${info.color}`}
-                            >
-                              <img src={info.icon} alt="" className="w-3.5 h-3.5 object-contain" />
-                              <span>{info.label}</span>
-                            </span>
-                          );
-                        })}
+                      {med.timings && med.timings.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {med.timings.map((t) => {
+                            const info = getTimingLabel(t);
+                            if (!info) return null;
+                            return (
+                              <span
+                                key={t}
+                                className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border flex items-center gap-1 ${info.color}`}
+                              >
+                                <img src={info.icon} alt="" className="w-3.5 h-3.5 object-contain" />
+                                <span>{info.label}</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 縦並びの2行配置 */}
+                    <div className="mt-2 space-y-1.5">
+                      {/* 1行目：お薬の名前 */}
+                      <h2 className={`text-2xl font-bold ${isPast ? "line-through text-gray-400" : "text-slate-800 dark:text-white"}`}>
+                        {med.name}
+                      </h2>
+                      {/* 2行目：点眼部位（薬名と同じくらいのサイズ、見やすい青色、点眼済みの場合は薄く） */}
+                      <div className={`text-2xl font-extrabold flex items-center gap-2 ${isPast ? "text-gray-400" : "text-blue-600 dark:text-blue-400"}`}>
+                        <span>💧</span>
+                        <span>{getEyeTargetLabel(med)}</span>
                       </div>
-                    )}
+                    </div>
                   </div>
                   {isPast && (
                     <div className="bg-green-100 text-green-600 rounded-full p-1">
@@ -895,6 +972,89 @@ export default function Home() {
         {/* チラ見せ用の余白（最後の要素の後ろ） */}
         <div className="h-20"></div>
       </div>
+
+      {/* アプリの使い方モーダル（全体スクロール方式） */}
+      {isHelpOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto custom-scrollbar animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-lg my-8 flex flex-col shadow-2xl relative overflow-hidden animate-scale-up">
+            {/* モーダルヘッダー */}
+            <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-slate-800/50">
+              <h2 className="text-xl font-extrabold text-slate-800 dark:text-white flex items-center gap-2">
+                <span>📖</span> アプリの使い方
+              </h2>
+              <button
+                onClick={() => setIsHelpOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors font-bold text-sm cursor-pointer touch-manipulation"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* モーダルコンテンツ */}
+            <div className="p-6 space-y-5 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+              {/* 項目1 */}
+              <div className="bg-blue-50/50 dark:bg-blue-955/10 p-4 rounded-2xl border border-blue-100/50 dark:border-blue-900/30">
+                <h3 className="font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5 mb-1.5">
+                  <span>1️⃣</span> 順番に目薬をさして、ボタンをポン！
+                </h3>
+                <p>
+                  目薬をさしたら「点眼した！」ボタンをタップします。終わった目薬のカードは自動的にうっすら薄くなり、緑のチェック（✓）がつきます。
+                </p>
+              </div>
+
+              {/* 項目⚠️ */}
+              <div className="bg-amber-50/50 dark:bg-amber-955/10 p-4 rounded-2xl border border-amber-100/50 dark:border-amber-900/30">
+                <h3 className="font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5 mb-1.5">
+                  <span>⚠️</span> 【大切】よく振る目薬のちゅうい！
+                </h3>
+                <p>
+                  「フルオロメトロン」などのよく振る目薬のときは、画面に「目薬をよく振りましたか？」という確認が出ます。ここにチェックを入れないとボタンが押せない安心安全システムです。
+                </p>
+              </div>
+
+              {/* 項目⏳ */}
+              <div className="bg-sky-50/50 dark:bg-sky-955/10 p-4 rounded-2xl border border-sky-100/50 dark:border-sky-900/30">
+                <h3 className="font-bold text-sky-600 dark:text-sky-400 flex items-center gap-1.5 mb-1.5">
+                  <span>⏳</span> 2つ目の目薬は「5分タイマー」の後で！
+                </h3>
+                <p>
+                  1つ目をさし終えると、ノクトたちが「5分待ってね」とカウントダウンを始めます。5分経つと、自動的に次の目薬のボタンがパッと押せるように切り替わります。
+                </p>
+              </div>
+
+              {/* 項目2 */}
+              <div className="bg-emerald-50/50 dark:bg-emerald-955/10 p-4 rounded-2xl border border-emerald-100/50 dark:border-emerald-900/30">
+                <h3 className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 mb-1.5">
+                  <span>2️⃣</span> 夜が明けると自動リセット！
+                </h3>
+                <p>
+                  次の日になると、チェックは自動できれいに消えるので、毎朝新しくスタートできます。
+                </p>
+              </div>
+
+              {/* 項目3 */}
+              <div className="bg-rose-50/50 dark:bg-rose-955/10 p-4 rounded-2xl border border-rose-100/50 dark:border-rose-900/30">
+                <h3 className="font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 mb-1.5">
+                  <span>3️⃣</span> ご褒美は肉球スタンプ🐾
+                </h3>
+                <p>
+                  カレンダーを押すと、お薬をさした時間にかわいいピンクの肉球スタンプが自動で押されます。
+                </p>
+              </div>
+            </div>
+
+            {/* フッター (つぶれ防止) */}
+            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-slate-800/50 flex justify-end flex-shrink-0">
+              <button
+                onClick={() => setIsHelpOpen(false)}
+                className="bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold text-sm px-6 py-2.5 rounded-xl shadow-md shadow-blue-500/20 transition-all cursor-pointer touch-manipulation min-h-[38px]"
+              >
+                閉じる
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
