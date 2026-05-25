@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import Navbar from "@/components/Navbar";
+import pawImg from "../../../public/paw.webp";
+
 
 type TabTimingType = "morning" | "lunch" | "dinner" | "bedtime";
 type HistoryTimingType = "morning" | "lunch" | "evening" | "bedtime";
@@ -205,7 +208,7 @@ export default function CalendarPage() {
                     {/* 左上: 朝 */}
                     <div className="w-5 h-5 flex items-center justify-center select-none text-[10px] leading-none">
                       {isMorningDone ? (
-                        <img src="/paw.webp" alt="朝" width={20} height={20} className="object-contain animate-scale-up" />
+                        <Image src={pawImg} alt="朝" width={20} height={20} className="object-contain animate-scale-up" />
                       ) : (
                         <span className="text-[9px] font-bold text-gray-300 dark:text-gray-600 transition-colors">朝</span>
                       )}
@@ -214,7 +217,7 @@ export default function CalendarPage() {
                     {/* 右上: 昼 */}
                     <div className="w-5 h-5 flex items-center justify-center select-none text-[10px] leading-none">
                       {isLunchDone ? (
-                        <img src="/paw.webp" alt="昼" width={20} height={20} className="object-contain animate-scale-up" />
+                        <Image src={pawImg} alt="昼" width={20} height={20} className="object-contain animate-scale-up" />
                       ) : (
                         <span className="text-[9px] font-bold text-gray-300 dark:text-gray-600 transition-colors">昼</span>
                       )}
@@ -223,7 +226,7 @@ export default function CalendarPage() {
                     {/* 左下: 夕 */}
                     <div className="w-5 h-5 flex items-center justify-center select-none text-[10px] leading-none">
                       {isEveningDone ? (
-                        <img src="/paw.webp" alt="夕" width={20} height={20} className="object-contain animate-scale-up" />
+                        <Image src={pawImg} alt="夕" width={20} height={20} className="object-contain animate-scale-up" />
                       ) : (
                         <span className="text-[9px] font-bold text-gray-300 dark:text-gray-600 transition-colors">夕</span>
                       )}
@@ -232,7 +235,7 @@ export default function CalendarPage() {
                     {/* 右下: 就寝前 */}
                     <div className="w-5 h-5 flex items-center justify-center select-none text-[10px] leading-none">
                       {isBedtimeDone ? (
-                        <img src="/paw.webp" alt="就" width={20} height={20} className="object-contain animate-scale-up" />
+                        <Image src={pawImg} alt="就" width={20} height={20} className="object-contain animate-scale-up" />
                       ) : (
                         <span className="text-[9px] font-bold text-gray-300 dark:text-gray-600 transition-colors">就</span>
                       )}
@@ -250,7 +253,7 @@ export default function CalendarPage() {
           <div className="grid grid-cols-2 gap-4 text-xs">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-slate-900 border border-gray-100 dark:border-slate-800 flex items-center justify-center text-sm">
-                <img src="/paw.webp" alt="点眼完了" width={24} height={24} className="object-contain" />
+                <Image src={pawImg} alt="点眼完了" width={24} height={24} className="object-contain" />
               </div>
               <div>
                 <p className="font-bold text-slate-700 dark:text-slate-300">点眼完了</p>
