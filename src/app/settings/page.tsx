@@ -718,7 +718,7 @@ export default function SettingsPage() {
                 className="w-full py-3.5 px-4 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700/50 border border-gray-200 dark:border-gray-700 text-slate-700 dark:text-slate-200 font-bold text-sm rounded-2xl transition-all cursor-pointer min-h-[44px] flex items-center justify-between shadow-sm"
               >
                 <span className="flex items-center gap-2">🆙 アップデート情報</span>
-                <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ver. 1.1.1</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ver. 1.1.2</span>
               </button>
 
               <button
@@ -837,6 +837,10 @@ export default function SettingsPage() {
             {/* モーダルコンテンツ */}
             <div className="p-6 overflow-y-auto max-h-[60vh] custom-scrollbar bg-white dark:bg-slate-800">
               <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-left space-y-4">
+                <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
+                  <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.1.2</p>
+                  <p className="pl-2 text-xs text-slate-500 mt-1">・画面遷移・アプリ終了時に５分タイマーが止まらないように修正。</p>
+                </div>
                 <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
                   <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.1.1</p>
                   <p className="pl-2 text-xs text-slate-500 mt-1">・設定画面の下にいつでも見られる「使い方ボタン」等を新設。</p>
