@@ -206,7 +206,57 @@ export default function Home() {
       localStorage.setItem("eye-drop-lastSavedDate", todayStr);
     } else if (savedStates) {
       try {
-        setTimingStates(JSON.parse(savedStates));
+        const loadedStates: Record<TabTimingType, TimingState> = JSON.parse(savedStates);
+        const now = Date.now();
+        let stateChanged = false;
+
+        // ロードした状態のうち waiting 状態のタイマーを現在時刻で再計算
+        (Object.keys(loadedStates) as TabTimingType[]).forEach((t) => {
+          const state = loadedStates[t];
+          if (state.status === "waiting") {
+            const endTimeStr = localStorage.getItem(`eye-drop-timer-endTime-${t}`);
+            if (endTimeStr) {
+              const endTime = parseInt(endTimeStr, 10);
+              const remaining = Math.max(0, Math.ceil((endTime - now) / 1000));
+              if (remaining > 0) {
+                loadedStates[t].timeLeft = remaining;
+                stateChanged = true;
+              } else {
+                // 既に時間が経過している場合、次の薬に進める
+                localStorage.removeItem(`eye-drop-timer-endTime-${t}`);
+                const tNormalMeds = currentMeds.filter(
+                  (med) => med.timings?.includes(t) && !med.timings?.includes("as_needed")
+                );
+                const sortedNormal = sortMedicines(tNormalMeds);
+                const nextIndex = state.currentIndex + 1;
+
+                if (nextIndex >= sortedNormal.length) {
+                  loadedStates[t] = {
+                    currentIndex: nextIndex,
+                    status: "good",
+                    timeLeft: 0,
+                  };
+                } else {
+                  loadedStates[t] = {
+                    currentIndex: nextIndex,
+                    status: "pending",
+                    timeLeft: 300,
+                  };
+                }
+                stateChanged = true;
+              }
+            } else {
+              // タイムスタンプが無い場合は現在時刻からタイマー秒数をもとにタイムスタンプを設定
+              const endTime = now + state.timeLeft * 1000;
+              localStorage.setItem(`eye-drop-timer-endTime-${t}`, endTime.toString());
+            }
+          }
+        });
+
+        setTimingStates(loadedStates);
+        if (stateChanged) {
+          localStorage.setItem("eye-drop-timingStates", JSON.stringify(loadedStates));
+        }
       } catch (e) {
         console.error("Failed to parse timingStates", e);
       }
@@ -423,6 +473,8 @@ export default function Home() {
   // タイマー処理 (すべての時間帯をバックグラウンドで毎秒監視)
   useEffect(() => {
     const timer = setInterval(() => {
+      const now = Date.now();
+
       setTimingStates((prev) => {
         let changed = false;
         const next = { ...prev };
@@ -431,13 +483,29 @@ export default function Home() {
           const state = next[t];
           if (state.status === "waiting") {
             changed = true;
-            if (state.timeLeft > 0) {
-              next[t] = {
-                ...state,
-                timeLeft: state.timeLeft - 1,
-              };
+            const endTimeStr = localStorage.getItem(`eye-drop-timer-endTime-${t}`);
+            let newTimeLeft = 0;
+
+            if (endTimeStr) {
+              const endTime = parseInt(endTimeStr, 10);
+              newTimeLeft = Math.max(0, Math.ceil((endTime - now) / 1000));
+            } else {
+              // endTime が保存されていない場合は初期設定（フェールセーフ）
+              const endTime = now + state.timeLeft * 1000;
+              localStorage.setItem(`eye-drop-timer-endTime-${t}`, endTime.toString());
+              newTimeLeft = state.timeLeft;
+            }
+
+            if (newTimeLeft > 0) {
+              if (state.timeLeft !== newTimeLeft) {
+                next[t] = {
+                  ...state,
+                  timeLeft: newTimeLeft,
+                };
+              }
             } else {
               // 待機終了 -> 次の目薬へ進む
+              localStorage.removeItem(`eye-drop-timer-endTime-${t}`);
               const tNormalMeds = medicines.filter(
                 (med) => med.timings?.includes(t) && !med.timings?.includes("as_needed")
               );
@@ -606,6 +674,11 @@ export default function Home() {
         const nextIndex = state.currentIndex;
         const hasNext = nextIndex < sortedNormal.length - 1;
 
+        if (hasNext) {
+          const endTime = Date.now() + 300 * 1000; // 5分後
+          localStorage.setItem(`eye-drop-timer-endTime-${selectedTiming}`, endTime.toString());
+        }
+
         return {
           ...prev,
           [selectedTiming]: {
@@ -670,6 +743,7 @@ export default function Home() {
 
   // デバッグ用タイマースキップ
   const skipTimer = () => {
+    localStorage.removeItem(`eye-drop-timer-endTime-${selectedTiming}`);
     setTimingStates((prev) => ({
       ...prev,
       [selectedTiming]: {
