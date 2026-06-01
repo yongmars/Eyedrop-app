@@ -145,15 +145,20 @@ export default function Home() {
   };
 
   const getInitialTiming = (): TabTimingType => {
-    const hour = new Date().getHours();
-    if (hour >= 6 && hour < 11) return "morning";
-    if (hour >= 11 && hour < 16) return "lunch";
-    if (hour >= 16 && hour < 20) return "dinner";
+    const now = new Date();
+    const hour = now.getHours();
+    const minute = now.getMinutes();
+    const minutesSinceStartOfDay = hour * 60 + minute;
+
+    if (minutesSinceStartOfDay >= 240 && minutesSinceStartOfDay < 660) return "morning";
+    if (minutesSinceStartOfDay >= 660 && minutesSinceStartOfDay < 960) return "lunch";
+    if (minutesSinceStartOfDay >= 960 && minutesSinceStartOfDay < 1260) return "dinner";
     return "bedtime";
   };
 
   const getTodayString = (): string => {
     const d = new Date();
+    d.setHours(d.getHours() - 4);
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     const dd = String(d.getDate()).padStart(2, "0");
@@ -275,7 +280,7 @@ export default function Home() {
       const hour = new Date().getHours();
 
       const getCharacterByTime = (h: number): "saku" | "lux" | "noct" => {
-        if (h >= 6 && h < 11) return "saku";
+        if (h >= 4 && h < 11) return "saku";
         if (h >= 11 && h < 16) return "lux";
         return "noct";
       };
@@ -789,11 +794,9 @@ export default function Home() {
 
   const getFormattedDate = () => {
     const today = new Date();
+    today.setHours(today.getHours() - 4);
     const month = today.getMonth() + 1;
     const date = today.getDate();
-    const dayNames = ["日", "月", "火", "放", "金", "土"];
-    // 日月火水木金土ですね。タイポ防止で：
-    // ["日", "月", "火", "水", "木", "金", "土"]
     const dayNamesCorrect = ["日", "月", "火", "水", "木", "金", "土"];
     const day = dayNamesCorrect[today.getDay()];
     return `${month}月${date}日（${day}）の点眼予定`;
