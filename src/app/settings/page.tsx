@@ -71,6 +71,7 @@ export default function SettingsPage() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isUpdateOpen, setIsUpdateOpen] = useState(false);
   const [isLicenseOpen, setIsLicenseOpen] = useState(false);
+  const [hasReadUpdate, setHasReadUpdate] = useState(true);
 
   // アンマウント時にタイマーをクリーンアップ
   useEffect(() => {
@@ -94,7 +95,24 @@ export default function SettingsPage() {
     } else {
       setMedicines(sortMedicines(initialMedicines));
     }
+
+    // アップデート情報既読確認 (v1.1.3)
+    const updateVersion = "v1.1.3";
+    const readRecord = localStorage.getItem(`read_update_${updateVersion}`);
+    if (readRecord === "true") {
+      setHasReadUpdate(true);
+    } else {
+      setHasReadUpdate(false);
+    }
   }, []);
+
+  // アップデート情報ボタンクリック時の処理
+  const handleUpdateClick = () => {
+    setIsUpdateOpen(true);
+    const updateVersion = "v1.1.3";
+    localStorage.setItem(`read_update_${updateVersion}`, "true");
+    setHasReadUpdate(true);
+  };
 
   const handleTimingChange = (timing: TimingType) => {
     setNewTimings((prev) =>
@@ -714,11 +732,18 @@ export default function SettingsPage() {
             <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800 space-y-4">
               <button
                 type="button"
-                onClick={() => setIsUpdateOpen(true)}
+                onClick={handleUpdateClick}
                 className="w-full py-3.5 px-4 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700/50 border border-gray-200 dark:border-gray-700 text-slate-700 dark:text-slate-200 font-bold text-sm rounded-2xl transition-all cursor-pointer min-h-[44px] flex items-center justify-between shadow-sm"
               >
-                <span className="flex items-center gap-2">🆙 アップデート情報</span>
-                <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ver. 1.1.2</span>
+                <span className="flex items-center gap-2">
+                  🆙 アップデート情報
+                  {!hasReadUpdate && (
+                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded text-red-600 bg-red-100 dark:bg-red-955/30 dark:text-red-400 border border-red-200 dark:border-red-900/30 ml-1">
+                      NEW!
+                    </span>
+                  )}
+                </span>
+                <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ver. 1.1.3</span>
               </button>
 
               <button
@@ -837,6 +862,14 @@ export default function SettingsPage() {
             {/* モーダルコンテンツ */}
             <div className="p-6 overflow-y-auto max-h-[60vh] custom-scrollbar bg-white dark:bg-slate-800">
               <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-left space-y-4">
+                <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
+                  <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.1.3 (2026年6月1日)</p>
+                  <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    ・日付の更新タイミングを朝4:00に変更し、<br />
+                    &nbsp;&nbsp;&nbsp;深夜の点眼も前日の就寝前として正しく記録できるようになりました。<br />
+                    ・各点眼時間帯の判定ルールを1分単位で最適化しました。
+                  </p>
+                </div>
                 <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
                   <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.1.2</p>
                   <p className="pl-2 text-xs text-slate-500 mt-1">・画面遷移・アプリ終了時に５分タイマーが止まらないように修正。</p>
