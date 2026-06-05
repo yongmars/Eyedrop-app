@@ -541,6 +541,71 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [medicines]);
 
+  // 時間帯と日付の自動更新処理（定期的チェック＆画面アクティブ時用）
+  const checkAndUpdateTimeAndDate = (currentMeds: Medicine[]) => {
+    const todayStr = getTodayString();
+    const lastSavedDate = localStorage.getItem("eye-drop-lastSavedDate");
+
+    if (lastSavedDate !== todayStr) {
+      // 日付が切り替わっているため、タイミングの状態をリセット
+      const resetStates: Record<TabTimingType, TimingState> = {
+        morning: { currentIndex: 0, status: "pending", timeLeft: 300 },
+        lunch: { currentIndex: 0, status: "pending", timeLeft: 300 },
+        dinner: { currentIndex: 0, status: "pending", timeLeft: 300 },
+        bedtime: { currentIndex: 0, status: "pending", timeLeft: 300 },
+      };
+
+      // お薬がない時間帯は自動で good にする
+      (Object.keys(resetStates) as TabTimingType[]).forEach((t) => {
+        const tNormalMeds = currentMeds.filter(
+          (m) => m.timings?.includes(t) && !m.timings?.includes("as_needed")
+        );
+        if (tNormalMeds.length === 0) {
+          resetStates[t] = { currentIndex: 0, status: "good", timeLeft: 0 };
+        }
+      });
+
+      setTimingStates(resetStates);
+      localStorage.setItem("eye-drop-timingStates", JSON.stringify(resetStates));
+      localStorage.setItem("eye-drop-lastSavedDate", todayStr);
+
+      // 5分タイマーの終了時刻もクリアする
+      (Object.keys(resetStates) as TabTimingType[]).forEach((t) => {
+        localStorage.removeItem(`eye-drop-timer-endTime-${t}`);
+      });
+    }
+
+    // デフォルト時間帯を自動更新 (変更がある場合のみState更新)
+    const nextTiming = getInitialTiming();
+    setSelectedTiming((prev) => (prev !== nextTiming ? nextTiming : prev));
+  };
+
+  // 1分ごとのタイマーと画面アクティブ（Visibility API/Focus）時の自動更新
+  useEffect(() => {
+    if (!isMounted) return;
+
+    // 定期的な現在時刻チェックタイマー（1分ごと）
+    const timer = setInterval(() => {
+      checkAndUpdateTimeAndDate(medicines);
+    }, 60000);
+
+    // 画面アクティブ（タブ切り替え、バックグラウンド復帰）時の即時チェック
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === "visible") {
+        checkAndUpdateTimeAndDate(medicines);
+      }
+    };
+
+    window.addEventListener("visibilitychange", handleVisibilityOrFocus);
+    window.addEventListener("focus", handleVisibilityOrFocus);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+    };
+  }, [isMounted, medicines]);
+
   // セリフ（メッセージ）の自動更新
   useEffect(() => {
     const currentState = timingStates[selectedTiming];
