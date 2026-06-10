@@ -913,9 +913,9 @@ export default function SettingsPage() {
               {/* 免責事項 */}
               <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800 text-[10px] text-slate-400 dark:text-slate-500 leading-relaxed text-left max-w-sm mx-auto space-y-1.5">
                 <p className="font-bold text-center mb-1 text-slate-500 dark:text-slate-400">【免責事項】</p>
-                <p>・本アプリは点眼の記録をサポートする補助ツールであり、医療機器ではありません。</p>
+                <p>・本アプリは点眼の記録をサポートする補助ツールであり、<br />&nbsp;&nbsp;医療機器ではありません。</p>
                 <p>・アプリ内の情報よりも、必ず医師の指示やお薬の添付文書を優先してください。</p>
-                <p>・本アプリの利用によって生じたトラブルについて、開発者は一切の責任を負いかねます。</p>
+                <p>・本アプリの利用によって生じたトラブルについて、<br />&nbsp;&nbsp;開発者は一切の責任を負いかねます。</p>
               </div>
 
               {/* アプリ初期化ボタン (免責事項の下に移動) */}
