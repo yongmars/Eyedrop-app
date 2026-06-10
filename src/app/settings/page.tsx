@@ -26,6 +26,15 @@ interface SnackbarState {
   prevData: Medicine | null;
 }
 
+interface CSVMedicine {
+  name: string;
+  kana: string;
+  type: string;
+  storage: string;
+  shake: string;
+  wiping: string;
+}
+
 const typeOrder: Record<MedicineType, number> = {
   water: 1,
   suspension: 2,
@@ -53,6 +62,12 @@ export default function SettingsPage() {
   const [newRequiresWiping, setNewRequiresWiping] = useState(false);
   const [newTimings, setNewTimings] = useState<TimingType[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
+
+  // オートコンプリート用のステート
+  const [csvMedicines, setCsvMedicines] = useState<CSVMedicine[]>([]);
+  const [suggestions, setSuggestions] = useState<CSVMedicine[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const autocompleteRef = useRef<HTMLDivElement>(null);
 
   // スナックバー用ステートとタイマー
   const [snackbar, setSnackbar] = useState<SnackbarState>({
@@ -82,6 +97,113 @@ export default function SettingsPage() {
     };
   }, []);
 
+  // medicines.csvのフェッチとパース
+  useEffect(() => {
+    const fetchCSV = async () => {
+      try {
+        const res = await fetch(`${basePath}/medicines.csv`);
+        if (!res.ok) throw new Error("Failed to fetch medicines.csv");
+        const text = await res.text();
+        const lines = text.split(/\r?\n/);
+        const parsed: CSVMedicine[] = [];
+        
+        // 1行目はヘッダーなのでスキップ
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          const cols = line.split(",");
+          if (cols.length >= 6 && cols[0].trim()) {
+            parsed.push({
+              name: cols[0].trim(),
+              kana: cols[1].trim(),
+              type: cols[2].trim(),
+              storage: cols[3].trim(),
+              shake: cols[4].trim(),
+              wiping: cols[5].trim(),
+            });
+          }
+        }
+        setCsvMedicines(parsed);
+      } catch (err) {
+        console.error("Error loading medicines.csv:", err);
+      }
+    };
+    fetchCSV();
+  }, [basePath]);
+
+  // サジェストエリア外のクリックを検知して閉じる
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (autocompleteRef.current && !autocompleteRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // 入力値に基づいてサジェストをフィルタリング
+  useEffect(() => {
+    if (!newName.trim() || csvMedicines.length === 0) {
+      setSuggestions([]);
+      return;
+    }
+
+    const query = newName.trim().toLowerCase();
+    const filtered = csvMedicines.filter((med) => {
+      const name = med.name.toLowerCase();
+      const kana = med.kana.toLowerCase();
+      return name.includes(query) || kana.includes(query);
+    });
+
+    // 前方一致を優先してソート (販売名、またはよみがなのいずれかが前方一致する場合)
+    const sorted = [...filtered].sort((a, b) => {
+      const aStarts = a.name.toLowerCase().startsWith(query) || a.kana.toLowerCase().startsWith(query);
+      const bStarts = b.name.toLowerCase().startsWith(query) || b.kana.toLowerCase().startsWith(query);
+      if (aStarts && !bStarts) return -1;
+      if (!aStarts && bStarts) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    setSuggestions(sorted.slice(0, 8)); // 最大8件表示
+  }, [newName, csvMedicines]);
+
+  // サジェスト選択時の連動処理
+  const handleSelectSuggestion = (med: CSVMedicine) => {
+    setNewName(med.name);
+    setShowSuggestions(false);
+
+    // 1. 薬のタイプ自動選択
+    const typeStr = med.type;
+    if (typeStr.includes("懸濁")) {
+      setNewType("suspension");
+    } else if (typeStr.includes("ゲル")) {
+      setNewType("gel");
+    } else if (typeStr.includes("軟膏")) {
+      setNewType("ointment");
+    } else {
+      setNewType("water"); // デフォルトは水性
+    }
+
+    // 2. 保管場所自動選択
+    const storageStr = med.storage;
+    if (storageStr.includes("冷所")) {
+      setNewStorage("cold");
+    } else {
+      setNewStorage("room");
+    }
+
+    // 3. 点眼後の拭き取り・洗顔が必要の自動チェック
+    const wipingStr = med.wiping;
+    if (wipingStr.includes("必要")) {
+      setNewRequiresWiping(true);
+    } else {
+      setNewRequiresWiping(false);
+    }
+  };
+
   // マウント時にlocalStorageからロード
   useEffect(() => {
     setIsMounted(true);
@@ -96,8 +218,8 @@ export default function SettingsPage() {
       setMedicines(sortMedicines(initialMedicines));
     }
 
-    // アップデート情報既読確認 (v1.1.3)
-    const updateVersion = "v1.1.3";
+    // アップデート情報既読確認 (v1.2.0)
+    const updateVersion = "v1.2.0";
     const readRecord = localStorage.getItem(`read_update_${updateVersion}`);
     if (readRecord === "true") {
       setHasReadUpdate(true);
@@ -109,7 +231,7 @@ export default function SettingsPage() {
   // アップデート情報ボタンクリック時の処理
   const handleUpdateClick = () => {
     setIsUpdateOpen(true);
-    const updateVersion = "v1.1.3";
+    const updateVersion = "v1.2.0";
     localStorage.setItem(`read_update_${updateVersion}`, "true");
     setHasReadUpdate(true);
   };
@@ -443,7 +565,7 @@ export default function SettingsPage() {
           </h2>
 
           {/* 1. 目薬の名前 */}
-          <div>
+          <div className="relative" ref={autocompleteRef}>
             <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
               目薬の名前
             </label>
@@ -451,11 +573,45 @@ export default function SettingsPage() {
               ref={nameInputRef}
               type="text"
               value={newName}
-              onChange={(e) => setNewName(e.target.value)}
+              onChange={(e) => {
+                setNewName(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => setShowSuggestions(true)}
               placeholder="例：ヒアレイン点眼液"
               className="w-full p-4 text-base border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-slate-900 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 min-h-[48px]"
               required
             />
+
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute left-0 right-0 mt-2 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border border-gray-100 dark:border-gray-700 rounded-2xl shadow-xl z-50 max-h-60 overflow-y-auto custom-scrollbar divide-y divide-gray-100 dark:divide-gray-700/50">
+                {suggestions.map((med, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => handleSelectSuggestion(med)}
+                    className="w-full text-left px-4 py-3 hover:bg-blue-50 dark:hover:bg-slate-700/50 transition-colors flex justify-between items-center cursor-pointer touch-manipulation"
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-slate-800 dark:text-white">
+                        {med.name}
+                      </span>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded text-gray-500 bg-gray-100 dark:bg-gray-700 dark:text-gray-300">
+                          {med.type}
+                        </span>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${med.storage === "冷所" ? "text-cyan-600 bg-cyan-50 dark:text-cyan-400 dark:bg-cyan-950/20" : "text-orange-600 bg-orange-50 dark:text-orange-400 dark:bg-orange-950/20"}`}>
+                          {med.storage}保存
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-xs text-blue-500 font-bold bg-blue-50 dark:bg-blue-955/30 px-2.5 py-1 rounded-xl">
+                      選択
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* 対象の目 */}
@@ -743,7 +899,7 @@ export default function SettingsPage() {
                     </span>
                   )}
                 </span>
-                <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ver. 1.1.3</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ver. 1.2.0</span>
               </button>
 
               <button
@@ -862,6 +1018,17 @@ export default function SettingsPage() {
             {/* モーダルコンテンツ */}
             <div className="p-6 overflow-y-auto max-h-[60vh] custom-scrollbar bg-white dark:bg-slate-800">
               <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-left space-y-4">
+                <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
+                  <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.2.0 (2026年6月10日)</p>
+                  <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    ・目薬名のオートコンプリート機能を実装し、<br />
+                    &nbsp;&nbsp;&nbsp;文字入力時に代表的な点眼薬の候補リストが表示され、<br />
+                    &nbsp;&nbsp;&nbsp;選択できるようになりました。<br />
+                    ・項目の自動入力連動にも対応し、目薬名を選択すると、<br />
+                    &nbsp;&nbsp;&nbsp;その性状（タイプ）、保管場所、拭き取り・洗顔の要否が<br />
+                    &nbsp;&nbsp;&nbsp;自動的に判定・選択されます。
+                  </p>
+                </div>
                 <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
                   <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.1.3 (2026年6月1日)</p>
                   <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
