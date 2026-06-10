@@ -869,21 +869,6 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* アプリ初期化ボタン */}
-            <div className="mt-12 pt-6 border-t border-gray-200 dark:border-gray-800 text-center">
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 mb-3">
-                ※初期化すると、すべての登録データが完全に消去され、元に戻せません。
-              </p>
-              <button
-                type="button"
-                onClick={handleResetAllData}
-                className="w-full py-3.5 px-4 border border-red-300 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-955/20 active:bg-red-100 dark:active:bg-red-900/30 text-red-600 dark:text-red-400 font-bold text-xs rounded-2xl transition-all cursor-pointer min-h-[44px] flex items-center justify-center gap-1.5 mb-8"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                ⚠️ アプリの全データを初期化する
-              </button>
-            </div>
-
             {/* アプリ情報エリア（フッター） */}
             <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800 space-y-4">
               <button
@@ -923,6 +908,29 @@ export default function SettingsPage() {
                   視能訓練士 ゆうまるす
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                 </a>
+              </div>
+
+              {/* 免責事項 */}
+              <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800 text-[10px] text-slate-400 dark:text-slate-500 leading-relaxed text-left max-w-sm mx-auto space-y-1.5">
+                <p className="font-bold text-center mb-1 text-slate-500 dark:text-slate-400">【免責事項】</p>
+                <p>・本アプリは点眼の記録をサポートする補助ツールであり、医療機器ではありません。</p>
+                <p>・アプリ内の情報よりも、必ず医師の指示やお薬の添付文書を優先してください。</p>
+                <p>・本アプリの利用によって生じたトラブルについて、開発者は一切の責任を負いかねます。</p>
+              </div>
+
+              {/* アプリ初期化ボタン (免責事項の下に移動) */}
+              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800 text-center">
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 mb-3">
+                  ※初期化すると、すべての登録データが完全に消去され、元に戻せません。
+                </p>
+                <button
+                  type="button"
+                  onClick={handleResetAllData}
+                  className="w-full py-3.5 px-4 border border-red-300 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-955/20 active:bg-red-100 dark:active:bg-red-900/30 text-red-600 dark:text-red-400 font-bold text-xs rounded-2xl transition-all cursor-pointer min-h-[44px] flex items-center justify-center gap-1.5 mb-8"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  ⚠️ アプリの全データを初期化する
+                </button>
               </div>
             </div>
           </div>
