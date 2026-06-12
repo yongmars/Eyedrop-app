@@ -21,10 +21,12 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+
 export const metadata: Metadata = {
   title: "ノクトのまいにち点眼管理アプリ",
   description: "楽しく目薬の習慣をつけるアプリ",
-  manifest: "/manifest.webmanifest",
+  manifest: `${basePath}/manifest.webmanifest`,
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

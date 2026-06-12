@@ -315,14 +315,17 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMounted]);
 
-  // Service Workerの登録と PWA インストールイベントの監視
+  // Service Workerの登録
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register(`${basePath}/sw.js`)
         .then((reg) => console.log('Service Worker registered with scope:', reg.scope))
         .catch((err) => console.error('Service Worker registration failed:', err));
     }
+  }, [basePath]);
 
+  // PWA インストールイベントの監視
+  useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -343,7 +346,7 @@ export default function Home() {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
       window.removeEventListener("appinstalled", handleAppInstalled);
     };
-  }, [basePath]);
+  }, []);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
