@@ -691,7 +691,7 @@ export default function SettingsPage() {
                 {medicines.map((med) => (
                   <div
                     key={med.id}
-                    className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-gray-150 dark:border-gray-700/80 flex flex-col justify-between gap-4 shadow-sm"
+                    className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-blue-400 dark:border-blue-500 flex flex-col justify-between gap-4 shadow-sm"
                   >
                     <div>
                       <div className="flex items-center gap-2 mb-2">
@@ -999,7 +999,7 @@ export default function SettingsPage() {
     </div>
 
       {/* 3. 通知設定（アコーディオン形式） */}
-      <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-gray-150 dark:border-gray-700 overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
         <button
           type="button"
           onClick={() => setIsNotificationOpen(!isNotificationOpen)}
