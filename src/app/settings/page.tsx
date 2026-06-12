@@ -1151,7 +1151,7 @@ export default function SettingsPage() {
           <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-lg my-8 flex flex-col shadow-2xl relative overflow-hidden animate-scale-up">
             {/* モーダルヘッダー */}
             <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-slate-800 sticky top-0 z-10">
-              <h3 className="text-lg font-black text-slate-800 dark:text-white">目薬の登録・編集・削除の方法</h3>
+              <h3 className="text-lg font-black text-slate-800 dark:text-white">目薬の管理方法・ホーム画面への追加</h3>
               <button
                 onClick={() => setIsHelpOpen(false)}
                 className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 flex items-center justify-center text-slate-500 dark:text-slate-300 font-bold cursor-pointer"
@@ -1179,6 +1179,20 @@ export default function SettingsPage() {
                 <p className="pl-2">
                   「登録済みの目薬一覧」のリストの削除したい目薬の「この目薬を削除する」を押します。
                   すると確認画面がでますので、「OK」を押すと削除されます。
+                </p>
+
+                <p className="font-extrabold text-blue-600 dark:text-blue-400 mt-4">■ 4. スマホのホーム画面に追加する（通知機能の利用）</p>
+                <p className="pl-2">
+                  本アプリをホーム画面に追加（インストール）すると、アプリを閉じている状態でも指定の時間に通知が届くようになります。
+                  <br /><br />
+                  <strong className="font-bold text-slate-850 dark:text-white">・LINEの中で開いている場合：</strong><br />
+                  画面の端（右上、または右下）にあるメニューやコンパスのマークをタップして、一度通常のブラウザ（ChromeやSafari）で開き直してください。
+                  <br /><br />
+                  <strong className="font-bold text-slate-850 dark:text-white">・Androidをご利用の場合：</strong><br />
+                  ブラウザで開き直すと画面に出現する「アプリをインストール」ボタンをタップしてください。
+                  <br /><br />
+                  <strong className="font-bold text-slate-850 dark:text-white">・iPhoneをご利用の場合：</strong><br />
+                  Safariの画面下部にある『共有ボタン（四角から矢印が出るマーク）』をタップし、メニューから『ホーム画面に追加』を選んでください。
                 </p>
               </div>
             </div>
@@ -1216,7 +1230,8 @@ export default function SettingsPage() {
                 <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
                   <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.3.1 (2026年6月12日)</p>
                   <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    ・LINE内ブラウザで開いている場合に外部ブラウザ（ChromeやSafari）への切り替えを促す案内バナーを最上部に表示する機能を追加しました。
+                    ・LINE内ブラウザで開いている場合に外部ブラウザ（ChromeやSafari）への切り替えを促す案内バナーを最上部に表示する機能を追加しました。<br />
+                    ・使い方ダイアログの内容を拡充し、PWAのホーム画面追加手順とLINE対策を追加しました。
                   </p>
                 </div>
                 <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
