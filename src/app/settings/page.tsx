@@ -74,10 +74,19 @@ export default function SettingsPage() {
   const syncSettings = async (enabled: boolean, times: typeof notificationTimes, currentMeds: Medicine[]) => {
     if ('caches' in window) {
       try {
+        const savedStates = localStorage.getItem("eye-drop-timingStates");
+        let timingStates = null;
+        if (savedStates) {
+          try {
+            timingStates = JSON.parse(savedStates);
+          } catch (e) {}
+        }
+
         const cacheData = {
           enabled,
           times,
-          medicines: currentMeds
+          medicines: currentMeds,
+          timingStates
         };
         const cache = await caches.open('pwa-settings-cache');
         await cache.put(

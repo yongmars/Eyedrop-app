@@ -104,6 +104,40 @@ export default function Home() {
     bedtime: { currentIndex: 0, status: "pending", timeLeft: 300 },
   });
 
+  const syncSettingsToCache = (currentMedicines: Medicine[], currentTimingStates: Record<TabTimingType, TimingState>) => {
+    if (!('caches' in window)) return;
+
+    const savedSettings = localStorage.getItem("eye-drop-notification-settings");
+    let enabled = false;
+    let times = {
+      morning: "08:00",
+      lunch: "13:00",
+      dinner: "18:00",
+      bedtime: "22:00"
+    };
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        enabled = !!parsed.enabled;
+        if (parsed.times) times = parsed.times;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    caches.open('pwa-settings-cache').then((cache) => {
+      cache.put(
+        new Request('/api/pwa-settings'),
+        new Response(JSON.stringify({ enabled, times, medicines: currentMedicines, timingStates: currentTimingStates }), {
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'SETTINGS_UPDATED' });
+      }
+    }).catch(err => console.error("Cache sync failed in page.tsx:", err));
+  };
+
   const [asNeededShaken, setAsNeededShaken] = useState<Record<number, boolean>>({});
   const [asNeededStatus, setAsNeededStatus] = useState<Record<number, "pending" | "ok" | "towel">>({});
   const [asNeededProcessing, setAsNeededProcessing] = useState<Record<number, boolean>>({});
@@ -360,37 +394,7 @@ export default function Home() {
     localStorage.setItem("my_medication_data", JSON.stringify(medicines));
 
     // 通知設定を読み込んでCache同期
-    const savedSettings = localStorage.getItem("eye-drop-notification-settings");
-    let enabled = false;
-    let times = {
-      morning: "08:00",
-      lunch: "13:00",
-      dinner: "18:00",
-      bedtime: "22:00"
-    };
-    if (savedSettings) {
-      try {
-        const parsed = JSON.parse(savedSettings);
-        enabled = !!parsed.enabled;
-        if (parsed.times) times = parsed.times;
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    
-    if ('caches' in window) {
-      caches.open('pwa-settings-cache').then((cache) => {
-        cache.put(
-          new Request('/api/pwa-settings'),
-          new Response(JSON.stringify({ enabled, times, medicines }), {
-            headers: { 'Content-Type': 'application/json' }
-          })
-        );
-        if (navigator.serviceWorker.controller) {
-          navigator.serviceWorker.controller.postMessage({ type: 'SETTINGS_UPDATED' });
-        }
-      }).catch(err => console.error("Cache sync in home page failed:", err));
-    }
+    syncSettingsToCache(medicines, timingStates);
 
     // お薬データの変更に合わせて timingStates の整合性を検証・補正
     setTimingStates((prev) => {
@@ -443,6 +447,9 @@ export default function Home() {
 
     localStorage.setItem("eye-drop-timingStates", JSON.stringify(timingStates));
     localStorage.setItem("eye-drop-lastSavedDate", getTodayString());
+
+    // キャッシュへ同期
+    syncSettingsToCache(medicines, timingStates);
 
     // 各時間帯の status が "good" かどうかを判定して eye-drop-history に反映
     const todayStr = getTodayString();
@@ -677,6 +684,14 @@ export default function Home() {
 
         if (!matchedTiming) return;
 
+        // すでにその時間帯の点眼が完了している場合は通知しない
+        if (matchedTiming !== "as_needed") {
+          const timingState = timingStates[matchedTiming as TabTimingType];
+          if (timingState && timingState.status === "good") {
+            return;
+          }
+        }
+
         // その時間帯に対応する目薬が1つ以上あるかチェック
         const hasMedForTiming = medicines.some(med => 
           med.timings && med.timings.includes(matchedTiming)
@@ -712,7 +727,7 @@ export default function Home() {
     // 10秒毎にチェック（漏れ防止）
     const interval = setInterval(checkAndNotifyForeground, 10000);
     return () => clearInterval(interval);
-  }, [isMounted, medicines, basePath]);
+  }, [isMounted, medicines, timingStates, basePath]);
 
   // セリフ（メッセージ）の自動更新
   useEffect(() => {

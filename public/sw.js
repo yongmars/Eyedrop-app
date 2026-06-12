@@ -117,6 +117,13 @@ async function checkAndSendNotification() {
 
     if (!matchedTiming) return;
 
+    // すでにその時間帯の点眼が完了（good）している場合は通知をスキップ
+    const timingStates = data.timingStates || {};
+    const timingState = timingStates[matchedTiming];
+    if (timingState && timingState.status === "good") {
+      return;
+    }
+
     // その時間帯に対応する目薬が1つ以上あるかチェック
     const medicines = data.medicines || [];
     const hasMedForTiming = medicines.some(med => 
