@@ -359,6 +359,39 @@ export default function Home() {
 
     localStorage.setItem("my_medication_data", JSON.stringify(medicines));
 
+    // 通知設定を読み込んでCache同期
+    const savedSettings = localStorage.getItem("eye-drop-notification-settings");
+    let enabled = false;
+    let times = {
+      morning: "08:00",
+      lunch: "13:00",
+      dinner: "18:00",
+      bedtime: "22:00"
+    };
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        enabled = !!parsed.enabled;
+        if (parsed.times) times = parsed.times;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    
+    if ('caches' in window) {
+      caches.open('pwa-settings-cache').then((cache) => {
+        cache.put(
+          new Request('/api/pwa-settings'),
+          new Response(JSON.stringify({ enabled, times, medicines }), {
+            headers: { 'Content-Type': 'application/json' }
+          })
+        );
+        if (navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'SETTINGS_UPDATED' });
+        }
+      }).catch(err => console.error("Cache sync in home page failed:", err));
+    }
+
     // お薬データの変更に合わせて timingStates の整合性を検証・補正
     setTimingStates((prev) => {
       let changed = false;
@@ -603,6 +636,83 @@ export default function Home() {
       window.removeEventListener("focus", handleVisibilityOrFocus);
     };
   }, [isMounted, medicines]);
+
+  // フォアグラウンド補助通知タイマー
+  useEffect(() => {
+    if (!isMounted) return;
+
+    let lastCheckedMinute = "";
+
+    const checkAndNotifyForeground = () => {
+      const savedSettings = localStorage.getItem("eye-drop-notification-settings");
+      if (!savedSettings) return;
+
+      try {
+        const parsed = JSON.parse(savedSettings);
+        if (!parsed.enabled) return;
+
+        const now = new Date();
+        const currentHourStr = String(now.getHours()).padStart(2, "0");
+        const currentMinStr = String(now.getMinutes()).padStart(2, "0");
+        const currentTimeStr = `${currentHourStr}:${currentMinStr}`;
+        const todayStr = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+        const uniqueMinuteKey = `${todayStr}-${currentTimeStr}`;
+
+        if (lastCheckedMinute === uniqueMinuteKey) return;
+
+        const timeKeys = {
+          morning: parsed.times?.morning || "08:00",
+          lunch: parsed.times?.lunch || "13:00",
+          dinner: parsed.times?.dinner || "18:00",
+          bedtime: parsed.times?.bedtime || "22:00"
+        };
+
+        let matchedTiming: TimingType | null = null;
+        for (const [timing, timeVal] of Object.entries(timeKeys)) {
+          if (timeVal === currentTimeStr) {
+            matchedTiming = timing as TimingType;
+            break;
+          }
+        }
+
+        if (!matchedTiming) return;
+
+        // その時間帯に対応する目薬が1つ以上あるかチェック
+        const hasMedForTiming = medicines.some(med => 
+          med.timings && med.timings.includes(matchedTiming)
+        );
+
+        if (hasMedForTiming) {
+          lastCheckedMinute = uniqueMinuteKey;
+          
+          if (Notification.permission === 'granted') {
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.ready.then((reg) => {
+                reg.showNotification("目薬の時間だよ！", {
+                  body: "忘れずに点眼しましょう！",
+                  icon: `${basePath}/Daily_eyedrops192.png`,
+                  badge: `${basePath}/Daily_eyedrops192.png`,
+                  tag: 'eyedrop-notification-' + matchedTiming,
+                  renotify: true
+                } as NotificationOptions);
+              });
+            } else {
+              new Notification("目薬の時間だよ！", {
+                body: "忘れずに点眼しましょう！",
+                icon: `${basePath}/Daily_eyedrops192.png`
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Foreground notification check error:", e);
+      }
+    };
+
+    // 10秒毎にチェック（漏れ防止）
+    const interval = setInterval(checkAndNotifyForeground, 10000);
+    return () => clearInterval(interval);
+  }, [isMounted, medicines, basePath]);
 
   // セリフ（メッセージ）の自動更新
   useEffect(() => {

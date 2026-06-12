@@ -58,6 +58,43 @@ export default function SettingsPage() {
   const [newTimings, setNewTimings] = useState<TimingType[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
 
+  // フォームのアコーディオン開閉状態
+  const [isFormOpen, setIsFormOpen] = useState(false);
+
+  // 通知設定用ステート
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [notificationEnabled, setNotificationEnabled] = useState(false);
+  const [notificationTimes, setNotificationTimes] = useState({
+    morning: "08:00",
+    lunch: "13:00",
+    dinner: "18:00",
+    bedtime: "22:00",
+  });
+
+  const syncSettings = async (enabled: boolean, times: typeof notificationTimes, currentMeds: Medicine[]) => {
+    if ('caches' in window) {
+      try {
+        const cacheData = {
+          enabled,
+          times,
+          medicines: currentMeds
+        };
+        const cache = await caches.open('pwa-settings-cache');
+        await cache.put(
+          new Request('/api/pwa-settings'),
+          new Response(JSON.stringify(cacheData), {
+            headers: { 'Content-Type': 'application/json' }
+          })
+        );
+        if (navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'SETTINGS_UPDATED' });
+        }
+      } catch (err) {
+        console.error("Cache sync failed:", err);
+      }
+    }
+  };
+
   // オートコンプリート用のステート
   const [csvMedicines, setCsvMedicines] = useState<CSVMedicine[]>([]);
   const [suggestions, setSuggestions] = useState<CSVMedicine[]>([]);
@@ -203,18 +240,52 @@ export default function SettingsPage() {
   useEffect(() => {
     setIsMounted(true);
     const saved = localStorage.getItem("my_medication_data");
+    let currentMeds = [];
     if (saved) {
       try {
-        setMedicines(JSON.parse(saved));
+        currentMeds = JSON.parse(saved);
+        setMedicines(currentMeds);
       } catch (e) {
         console.error("Failed to parse medicines", e);
       }
     } else {
-      setMedicines(sortMedicines(initialMedicines));
+      currentMeds = sortMedicines(initialMedicines);
+      setMedicines(currentMeds);
     }
 
-    // アップデート情報既読確認 (v1.2.0)
-    const updateVersion = "v1.2.0";
+    // 通知設定の読込
+    const savedSettings = localStorage.getItem("eye-drop-notification-settings");
+    let initialEnabled = false;
+    let initialTimes = {
+      morning: "08:00",
+      lunch: "13:00",
+      dinner: "18:00",
+      bedtime: "22:00",
+    };
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        initialEnabled = !!parsed.enabled;
+        setNotificationEnabled(initialEnabled);
+        if (parsed.times) {
+          initialTimes = {
+            morning: parsed.times.morning || "08:00",
+            lunch: parsed.times.lunch || "13:00",
+            dinner: parsed.times.dinner || "18:00",
+            bedtime: parsed.times.bedtime || "22:00",
+          };
+          setNotificationTimes(initialTimes);
+        }
+      } catch (e) {
+        console.error("Failed to parse notification settings", e);
+      }
+    }
+
+    // 初回マウント時にCache同期
+    syncSettings(initialEnabled, initialTimes, currentMeds);
+
+    // アップデート情報既読確認 (v1.3.0)
+    const updateVersion = "v1.3.0";
     const readRecord = localStorage.getItem(`read_update_${updateVersion}`);
     if (readRecord === "true") {
       setHasReadUpdate(true);
@@ -226,9 +297,41 @@ export default function SettingsPage() {
   // アップデート情報ボタンクリック時の処理
   const handleUpdateClick = () => {
     setIsUpdateOpen(true);
-    const updateVersion = "v1.2.0";
+    const updateVersion = "v1.3.0";
     localStorage.setItem(`read_update_${updateVersion}`, "true");
     setHasReadUpdate(true);
+  };
+
+  const handleNotificationToggle = async (checked: boolean) => {
+    if (checked) {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        alert("通知がブロックされています。ブラウザの設定から通知を許可してください。");
+        return;
+      }
+    }
+    
+    setNotificationEnabled(checked);
+    const updated = {
+      enabled: checked,
+      times: notificationTimes
+    };
+    localStorage.setItem("eye-drop-notification-settings", JSON.stringify(updated));
+    syncSettings(checked, notificationTimes, medicines);
+  };
+
+  const handleNotificationTimeChange = (timing: "morning" | "lunch" | "dinner" | "bedtime", value: string) => {
+    const updatedTimes = {
+      ...notificationTimes,
+      [timing]: value
+    };
+    setNotificationTimes(updatedTimes);
+    const updated = {
+      enabled: notificationEnabled,
+      times: updatedTimes
+    };
+    localStorage.setItem("eye-drop-notification-settings", JSON.stringify(updated));
+    syncSettings(notificationEnabled, updatedTimes, medicines);
   };
 
   const handleTimingChange = (timing: TimingType) => {
@@ -279,6 +382,7 @@ export default function SettingsPage() {
 
     setMedicines(updated);
     localStorage.setItem("my_medication_data", JSON.stringify(updated));
+    syncSettings(notificationEnabled, notificationTimes, updated);
 
     // スナックバー非表示にしてタイマークリア
     if (snackbarTimerRef.current) {
@@ -294,6 +398,7 @@ export default function SettingsPage() {
 
   // 編集開始処理
   const handleEditClick = (med: Medicine) => {
+    setIsFormOpen(true); // フォームアコーディオンを開く
     setEditingId(med.id);
     setNewName(med.name);
     setEyeTarget(med.eyeTarget || "both");
@@ -306,7 +411,7 @@ export default function SettingsPage() {
     setTimeout(() => {
       nameInputRef.current?.focus();
       nameInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 100);
+    }, 200);
   };
 
   // フォームクリア
@@ -323,6 +428,7 @@ export default function SettingsPage() {
   // 編集キャンセル
   const handleCancelEdit = () => {
     resetForm();
+    setIsFormOpen(false); // フォームアコーディオンを閉じる
   };
 
   // 削除処理
@@ -337,6 +443,7 @@ export default function SettingsPage() {
     const updated = medicines.filter((med) => med.id !== id);
     setMedicines(updated);
     localStorage.setItem("my_medication_data", JSON.stringify(updated));
+    syncSettings(notificationEnabled, notificationTimes, updated);
 
     // 操作取り消し用のスナックバーを表示
     showSnackbar(`「${name}」を削除しました`, "delete", medToDelete);
@@ -448,12 +555,14 @@ export default function SettingsPage() {
       const sorted = sortMedicines(updatedMedicines);
       setMedicines(sorted);
       localStorage.setItem("my_medication_data", JSON.stringify(sorted));
+      syncSettings(notificationEnabled, notificationTimes, sorted);
 
       // 操作取り消し用のスナックバーを表示
       showSnackbar(`「${newName.trim()}」の変更を保存しました`, "edit", medToEdit);
 
-      // 編集完了後はフォームをリセットし、設定画面に留まる
+      // 編集完了後はフォームをリセットし、フォームアコーディオンを閉じる
       resetForm();
+      setIsFormOpen(false);
     } else {
       // 新規登録処理
       const newMed: Medicine = {
@@ -473,9 +582,11 @@ export default function SettingsPage() {
       // ステートとlocalStorageに保存
       setMedicines(updatedMedicines);
       localStorage.setItem("my_medication_data", JSON.stringify(updatedMedicines));
+      syncSettings(notificationEnabled, notificationTimes, updatedMedicines);
 
-      // フォームリセット
+      // フォームリセットとクローズ
       resetForm();
+      setIsFormOpen(false);
 
       // 新規登録時はホームに戻る
       router.push("/");
@@ -502,6 +613,7 @@ export default function SettingsPage() {
 
     // ③ アプリ内の目薬リストを空にする
     setMedicines([]);
+    syncSettings(false, notificationTimes, []);
 
     // ④ アラートを表示してメイン画面へ戻る
     alert("アプリを初期化しました。");
@@ -551,15 +663,116 @@ export default function SettingsPage() {
         </header>
       </div>
 
-      {/* 設定画面（入力フォーム） */}
-      <div className="px-6 py-6 max-w-md mx-auto w-full animate-slide-in-fast">
-        <form onSubmit={handleAddMedicine} className="space-y-6 bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
-          {/* フォームタイトル（動的切り替え） */}
-          <h2 className="text-base font-bold text-slate-800 dark:text-white border-b border-gray-100 dark:border-gray-700 pb-3 mb-2 flex items-center gap-2">
-            {editingId !== null ? "✏️ 目薬の情報を修正する" : "＋ 新しく目薬を登録する"}
-          </h2>
+      {/* 設定画面コンテンツ */}
+      <div className="px-6 py-6 max-w-md mx-auto w-full space-y-6 pb-20 animate-slide-in-fast">
+        
+        {/* 1. 登録済みの目薬一覧（最上部に配置） */}
+        {isMounted && (
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
+            <h2 className="text-lg font-bold text-slate-800 dark:text-white mb-4">
+              登録済みの目薬一覧 ({medicines.length})
+            </h2>
 
-          {/* 1. 目薬の名前 */}
+            {medicines.length === 0 ? (
+              <div className="text-center py-8 text-sm text-slate-400 dark:text-slate-500 bg-gray-50 dark:bg-slate-900 rounded-3xl border border-gray-150 dark:border-gray-750">
+                登録されている目薬はありません。
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {medicines.map((med) => (
+                  <div
+                    key={med.id}
+                    className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-gray-150 dark:border-gray-700/80 flex flex-col justify-between gap-4 shadow-sm"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded text-gray-500 bg-gray-200 dark:bg-gray-700 dark:text-gray-300">
+                          {getTypeLabel(med.type)}
+                        </span>
+                        {med.storage === "cold" ? (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-cyan-600 bg-cyan-100 flex items-center gap-1" title="冷所保存">
+                            <img src={`${basePath}/cold.webp`} alt="" className="w-3.5 h-3.5 object-contain" />
+                            冷所
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-orange-600 bg-orange-100 flex items-center gap-1" title="室温保存">
+                            <img src={`${basePath}/room.webp`} alt="" className="w-3.5 h-3.5 object-contain" />
+                            室温
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-2 space-y-1">
+                        <h3 className="text-lg font-bold text-slate-800 dark:text-white">
+                          {med.name}
+                        </h3>
+                        <div className={`text-lg font-extrabold flex items-center gap-1.5 ${med.timings?.includes("as_needed") ? "text-purple-600 dark:text-purple-400" : "text-blue-600 dark:text-blue-400"}`}>
+                          <span>💧</span>
+                          <span>{getEyeTargetLabel(med)}</span>
+                        </div>
+                      </div>
+
+                      {/* タイミングバッジの表示 */}
+                      {med.timings && med.timings.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-3">
+                          {med.timings.map((t) => {
+                            const info = getTimingLabel(t);
+                            if (!info) return null;
+                            return (
+                              <span
+                                key={t}
+                                className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border flex items-center gap-1 ${info.color}`}
+                              >
+                                <img src={info.icon} alt="" className="w-3.5 h-3.5 object-contain" />
+                                <span>{info.label}</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="border-t border-gray-100 dark:border-gray-700 pt-3 flex justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleEditClick(med)}
+                        className="bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-blue-955/20 dark:text-blue-400 dark:hover:bg-blue-900/30 font-bold text-xs px-4 py-2.5 rounded-xl border border-blue-200 dark:border-blue-900/30 transition-all flex items-center gap-1.5 cursor-pointer touch-manipulation min-h-[38px]"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                        編集する
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteMedicine(med.id, med.name)}
+                        className="bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-955/20 dark:text-red-400 dark:hover:bg-red-900/30 font-bold text-xs px-4 py-2.5 rounded-xl border border-red-200 dark:border-red-900/30 transition-all flex items-center gap-1.5 cursor-pointer touch-manipulation min-h-[38px]"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                        この目薬を削除する
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 2. 新しく目薬を登録する（アコーディオン形式） */}
+        <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setIsFormOpen(!isFormOpen)}
+            className="w-full px-6 py-5 flex justify-between items-center font-bold text-slate-800 dark:text-white cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors"
+          >
+            <span className="flex items-center gap-2 text-base">
+              {editingId !== null ? "✏️ 目薬の情報を修正する" : "＋ 新しく目薬を登録する"}
+            </span>
+            <span className="text-sm text-gray-400">
+              {isFormOpen ? "▲ 閉じる" : "▼ 開く"}
+            </span>
+          </button>
+
+          {isFormOpen && (
+            <form onSubmit={handleAddMedicine} className="px-6 pb-6 pt-2 space-y-6 border-t border-gray-50 dark:border-gray-750/50">
           <div className="relative" ref={autocompleteRef}>
             <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
               目薬の名前
@@ -773,164 +986,134 @@ export default function SettingsPage() {
             )}
           </div>
         </form>
-      </div>
+      )}
+    </div>
 
-      {/* 登録済みの目薬一覧 */}
-      {isMounted && (
-        <div className="px-6 pb-20 max-w-md mx-auto w-full animate-slide-in-fast">
-          <div className="border-t border-gray-200 dark:border-gray-800 my-8 pt-8">
-            <h2 className="text-lg font-bold text-slate-800 dark:text-white mb-4">
-              登録済みの目薬一覧 ({medicines.length})
-            </h2>
+      {/* 3. 通知設定（アコーディオン形式） */}
+      <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-gray-150 dark:border-gray-700 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+          className="w-full px-6 py-5 flex justify-between items-center font-bold text-slate-800 dark:text-white cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors"
+        >
+          <span className="flex items-center gap-2 text-base">
+            🔔 通知設定
+          </span>
+          <span className="text-sm text-gray-400">
+            {isNotificationOpen ? "▲ 閉じる" : "▼ 開く"}
+          </span>
+        </button>
 
-            {medicines.length === 0 ? (
-              <div className="text-center py-8 text-sm text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-800 rounded-3xl border border-gray-100 dark:border-gray-700">
-                登録されている目薬はありません。
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {medicines.map((med) => (
-                  <div
-                    key={med.id}
-                    className="bg-white dark:bg-slate-800 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col justify-between gap-4"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded text-gray-500 bg-gray-200 dark:bg-gray-700 dark:text-gray-300">
-                          {getTypeLabel(med.type)}
-                        </span>
-                        {med.storage === "cold" ? (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-cyan-600 bg-cyan-100 flex items-center gap-1" title="冷所保存">
-                            <img src={`${basePath}/cold.webp`} alt="" className="w-3.5 h-3.5 object-contain" />
-                            冷所
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-orange-600 bg-orange-100 flex items-center gap-1" title="室温保存">
-                            <img src={`${basePath}/room.webp`} alt="" className="w-3.5 h-3.5 object-contain" />
-                            室温
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-2 space-y-1">
-                        <h3 className="text-lg font-bold text-slate-800 dark:text-white">
-                          {med.name}
-                        </h3>
-                        <div className={`text-lg font-extrabold flex items-center gap-1.5 ${med.timings?.includes("as_needed") ? "text-purple-600 dark:text-purple-400" : "text-blue-600 dark:text-blue-400"}`}>
-                          <span>💧</span>
-                          <span>{getEyeTargetLabel(med)}</span>
-                        </div>
-                      </div>
+        {isNotificationOpen && (
+          <div className="px-6 pb-6 pt-4 space-y-6 border-t border-gray-50 dark:border-gray-750/50">
+            {/* 1. 通知トグル */}
+            <label className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-900 rounded-2xl cursor-pointer touch-manipulation min-h-[48px]">
+              <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                目薬の通知を受け取る
+              </span>
+              <input
+                type="checkbox"
+                checked={notificationEnabled}
+                onChange={(e) => handleNotificationToggle(e.target.checked)}
+                className="w-12 h-6 rounded-full bg-gray-300 checked:bg-blue-600 appearance-none cursor-pointer relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:w-5 after:h-5 after:rounded-full after:bg-white after:transition-transform checked:after:translate-x-6 focus:outline-none"
+              />
+            </label>
 
-                      {/* タイミングバッジの表示 */}
-                      {med.timings && med.timings.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-3">
-                          {med.timings.map((t) => {
-                            const info = getTimingLabel(t);
-                            if (!info) return null;
-                            return (
-                              <span
-                                key={t}
-                                className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border flex items-center gap-1 ${info.color}`}
-                              >
-                                <img src={info.icon} alt="" className="w-3.5 h-3.5 object-contain" />
-                                <span>{info.label}</span>
-                              </span>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="border-t border-gray-100 dark:border-gray-700 pt-3 flex justify-end gap-3">
-                      <button
-                        type="button"
-                        onClick={() => handleEditClick(med)}
-                        className="bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-blue-955/20 dark:text-blue-400 dark:hover:bg-blue-900/30 font-bold text-xs px-4 py-2.5 rounded-xl border border-blue-200 dark:border-blue-900/30 transition-all flex items-center gap-1.5 cursor-pointer touch-manipulation min-h-[38px]"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                        編集する
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteMedicine(med.id, med.name)}
-                        className="bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-955/20 dark:text-red-400 dark:hover:bg-red-900/30 font-bold text-xs px-4 py-2.5 rounded-xl border border-red-200 dark:border-red-900/30 transition-all flex items-center gap-1.5 cursor-pointer touch-manipulation min-h-[38px]"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                        この目薬を削除する
-                      </button>
-                    </div>
+            {/* 2. タイムピッカーリスト */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-slate-700 dark:text-slate-350">
+                通知時刻の設定
+              </h3>
+              {([
+                { key: "morning", label: "朝の通知時間", icon: "/morning.webp" },
+                { key: "lunch", label: "昼の通知時間", icon: "/lunch.webp" },
+                { key: "dinner", label: "夕の通知時間", icon: "/dinner.webp" },
+                { key: "bedtime", label: "就寝前の通知時間", icon: "/bedtime.webp" }
+              ] as const).map((item) => (
+                <div key={item.key} className="flex items-center justify-between p-3.5 bg-gray-50 dark:bg-slate-900 border border-gray-150 dark:border-gray-750 rounded-2xl">
+                  <div className="flex items-center gap-2">
+                    <img src={`${basePath}${item.icon}`} alt="" className="w-7 h-7 object-contain flex-shrink-0" />
+                    <span className="text-sm font-bold text-slate-750 dark:text-slate-300">{item.label}</span>
                   </div>
-                ))}
-              </div>
-            )}
-
-            {/* アプリ情報エリア（フッター） */}
-            <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800 space-y-4">
-              <button
-                type="button"
-                onClick={handleUpdateClick}
-                className="w-full py-3.5 px-4 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700/50 border border-gray-200 dark:border-gray-700 text-slate-700 dark:text-slate-200 font-bold text-sm rounded-2xl transition-all cursor-pointer min-h-[44px] flex items-center justify-between shadow-sm"
-              >
-                <span className="flex items-center gap-2">
-                  🆙 アップデート情報
-                  {!hasReadUpdate && (
-                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded text-red-600 bg-red-100 dark:bg-red-955/30 dark:text-red-400 border border-red-200 dark:border-red-900/30 ml-1">
-                      NEW!
-                    </span>
-                  )}
-                </span>
-                <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ver. 1.2.0</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsLicenseOpen(true)}
-                className="w-full py-3.5 px-4 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700/50 border border-gray-200 dark:border-gray-700 text-slate-700 dark:text-slate-200 font-bold text-sm rounded-2xl transition-all cursor-pointer min-h-[44px] flex items-center justify-between shadow-sm"
-              >
-                <span className="flex items-center gap-2">📄 ライセンス情報</span>
-                <span className="text-xs text-gray-400 dark:text-gray-500">▶</span>
-              </button>
-
-              {/* 製作者情報とリンク */}
-              <div className="text-center pt-4 text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1.5">
-                <span>作った人：</span>
-                <a
-                  href="https://note.com/note_yongmars"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-500 hover:underline font-extrabold flex items-center gap-1"
-                >
-                  視能訓練士 ゆうまるす
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                </a>
-              </div>
-
-              {/* 免責事項 */}
-              <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800 text-[10px] text-slate-400 dark:text-slate-500 leading-relaxed text-left max-w-sm mx-auto space-y-1.5">
-                <p className="font-bold text-center mb-1 text-slate-500 dark:text-slate-400">【免責事項】</p>
-                <p>・本アプリは点眼の記録をサポートする補助ツールであり、<br />&nbsp;&nbsp;医療機器ではありません。</p>
-                <p>・アプリ内の情報よりも、必ず医師の指示やお薬の添付文書を優先してください。</p>
-                <p>・本アプリの利用によって生じたトラブルについて、<br />&nbsp;&nbsp;開発者は一切の責任を負いかねます。</p>
-              </div>
-
-              {/* アプリ初期化ボタン (免責事項の下に移動) */}
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800 text-center">
-                <p className="text-[10px] text-slate-400 dark:text-slate-500 mb-3">
-                  ※初期化すると、すべての登録データが完全に消去され、元に戻せません。
-                </p>
-                <button
-                  type="button"
-                  onClick={handleResetAllData}
-                  className="w-full py-3.5 px-4 border border-red-300 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-955/20 active:bg-red-100 dark:active:bg-red-900/30 text-red-600 dark:text-red-400 font-bold text-xs rounded-2xl transition-all cursor-pointer min-h-[44px] flex items-center justify-center gap-1.5 mb-8"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                  ⚠️ アプリの全データを初期化する
-                </button>
-              </div>
+                  <input
+                    type="time"
+                    value={notificationTimes[item.key]}
+                    disabled={!notificationEnabled}
+                    onChange={(e) => handleNotificationTimeChange(item.key, e.target.value)}
+                    className="p-2 border border-gray-200 dark:border-gray-750 bg-white dark:bg-slate-800 rounded-xl focus:outline-none text-slate-800 dark:text-white font-bold text-sm disabled:opacity-50"
+                  />
+                </div>
+              ))}
             </div>
           </div>
+        )}
+      </div>
+
+      {/* アプリ情報エリア（フッター） */}
+      <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800 space-y-4">
+        <button
+          type="button"
+          onClick={handleUpdateClick}
+          className="w-full py-3.5 px-4 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700/50 border border-gray-200 dark:border-gray-700 text-slate-700 dark:text-slate-200 font-bold text-sm rounded-2xl transition-all cursor-pointer min-h-[44px] flex items-center justify-between shadow-sm"
+        >
+          <span className="flex items-center gap-2">
+            🆙 アップデート情報
+            {!hasReadUpdate && (
+              <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded text-red-600 bg-red-100 dark:bg-red-955/30 dark:text-red-400 border border-red-200 dark:border-red-900/30 ml-1">
+                NEW!
+              </span>
+            )}
+          </span>
+          <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ver. 1.3.0</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setIsLicenseOpen(true)}
+          className="w-full py-3.5 px-4 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700/50 border border-gray-200 dark:border-gray-700 text-slate-700 dark:text-slate-200 font-bold text-sm rounded-2xl transition-all cursor-pointer min-h-[44px] flex items-center justify-between shadow-sm"
+        >
+          <span className="flex items-center gap-2">📄 ライセンス情報</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500">▶</span>
+        </button>
+
+        {/* 製作者情報とリンク */}
+        <div className="text-center pt-4 text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1.5">
+          <span>作った人：</span>
+          <a
+            href="https://note.com/note_yongmars"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 hover:underline font-extrabold flex items-center gap-1"
+          >
+            視能訓練士 ゆうまるす
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </a>
         </div>
-      )}
+
+        {/* 免責事項 */}
+        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800 text-[10px] text-slate-400 dark:text-slate-500 leading-relaxed text-left max-w-sm mx-auto space-y-1.5">
+          <p className="font-bold text-center mb-1 text-slate-500 dark:text-slate-400">【免責事項】</p>
+          <p>・本アプリは点眼の記録をサポートする補助ツールであり、<br />&nbsp;&nbsp;医療機器ではありません。</p>
+          <p>・アプリ内の情報よりも、必ず医師の指示やお薬の添付文書を優先してください。</p>
+          <p>・本アプリの利用によって生じたトラブルについて、<br />&nbsp;&nbsp;開発者は一切の責任を負いかねます。</p>
+        </div>
+
+        {/* アプリ初期化ボタン (免責事項の下に移動) */}
+        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800 text-center">
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 mb-3">
+            ※初期化すると、すべての登録データが完全に消去され、元に戻せません。
+          </p>
+          <button
+            type="button"
+            onClick={handleResetAllData}
+            className="w-full py-3.5 px-4 border border-red-300 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-955/20 active:bg-red-100 dark:active:bg-red-900/30 text-red-600 dark:text-red-400 font-bold text-xs rounded-2xl transition-all cursor-pointer min-h-[44px] flex items-center justify-center gap-1.5 mb-8"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            ⚠️ アプリの全データを初期化する
+          </button>
+        </div>
+      </div>
+    </div>
 
       {/* 操作取り消しスナックバー */}
       <div
@@ -1021,6 +1204,16 @@ export default function SettingsPage() {
             {/* モーダルコンテンツ */}
             <div className="p-6 overflow-y-auto max-h-[60vh] custom-scrollbar bg-white dark:bg-slate-800">
               <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-left space-y-4">
+                <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
+                  <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.3.0 (2026年6月12日)</p>
+                  <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    ・PWAスマート通知機能（定時ローカル通知）を搭載しました。<br />
+                    &nbsp;&nbsp;&nbsp;朝、昼、夕、就寝前の指定時間に自動でローカル通知が届きます。<br />
+                    &nbsp;&nbsp;&nbsp;（その時間帯に対象のお薬が1つでも登録されている場合のみ作動）<br />
+                    ・設定画面のレイアウトを整理し、登録済みの目薬一覧を最上部に配置。<br />
+                    &nbsp;&nbsp;&nbsp;登録・編集フォームおよび通知設定をそれぞれアコーディオン形式にまとめました。
+                  </p>
+                </div>
                 <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
                   <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.2.0 (2026年6月10日)</p>
                   <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
