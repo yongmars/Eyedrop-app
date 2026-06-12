@@ -26,12 +26,7 @@ const typeOrder: Record<MedicineType, number> = {
 };
 
 // サンプルデータ
-const initialMedicines: Medicine[] = [
-  { id: 1, name: "ヒアルロン酸Na", instruction: "両目 1滴", type: "water", storage: "room", requiresWiping: false, timings: ["morning", "lunch", "dinner"] },
-  { id: 3, name: "キサラタン", instruction: "両目 1滴", type: "water", storage: "cold", requiresWiping: true, timings: ["bedtime"] },
-  { id: 4, name: "タリビット眼軟膏", instruction: "両目 塗布", type: "ointment", storage: "room", requiresWiping: false, timings: ["bedtime"] },
-  { id: 2, name: "フルオロメトロン", instruction: "両目 1滴", type: "suspension", storage: "room", requiresWiping: false, timings: ["morning", "lunch", "dinner"] },
-];
+const initialMedicines: Medicine[] = [];
 
 type TabTimingType = "morning" | "lunch" | "dinner" | "bedtime";
 
