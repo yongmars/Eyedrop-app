@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "../components/Navbar";
+import LineBrowserBanner from "../components/LineBrowserBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -49,6 +50,7 @@ export default function RootLayout({
         <div className="w-full max-w-md bg-background relative flex flex-col h-full shadow-xl overflow-hidden">
           {/* Main Content Area */}
           <main className="flex-1 overflow-y-auto pb-20">
+            <LineBrowserBanner />
             {children}
           </main>
 
