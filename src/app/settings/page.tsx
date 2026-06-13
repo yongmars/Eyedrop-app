@@ -90,13 +90,16 @@ export default function SettingsPage() {
         };
         const cache = await caches.open('pwa-settings-cache');
         await cache.put(
-          new Request('/api/pwa-settings'),
+          new Request(`${basePath}/api/pwa-settings`),
           new Response(JSON.stringify(cacheData), {
             headers: { 'Content-Type': 'application/json' }
           })
         );
-        if (navigator.serviceWorker.controller) {
-          navigator.serviceWorker.controller.postMessage({ type: 'SETTINGS_UPDATED' });
+        if ('serviceWorker' in navigator) {
+          const reg = await navigator.serviceWorker.ready;
+          if (reg.active) {
+            reg.active.postMessage({ type: 'SETTINGS_UPDATED' });
+          }
         }
       } catch (err) {
         console.error("Cache sync failed:", err);

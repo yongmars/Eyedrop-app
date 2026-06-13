@@ -36,7 +36,7 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname === base + '/api/pwa-settings') {
     event.respondWith(
       caches.open('pwa-settings-cache')
-        .then((cache) => cache.match('/api/pwa-settings'))
+        .then((cache) => cache.match(base + '/api/pwa-settings'))
         .then((response) => response || new Response(JSON.stringify({ enabled: false }), { headers: { 'Content-Type': 'application/json' } }))
     );
     return;
@@ -82,7 +82,7 @@ let lastNotifiedMinute = ""; // 同じ分に複数回通知が飛ぶのを防止
 async function checkAndSendNotification() {
   try {
     const cache = await caches.open('pwa-settings-cache');
-    const response = await cache.match('/api/pwa-settings');
+    const response = await cache.match(base + '/api/pwa-settings');
     if (!response) return;
 
     const data = await response.json();

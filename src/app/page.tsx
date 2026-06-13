@@ -126,14 +126,19 @@ export default function Home() {
     }
 
     caches.open('pwa-settings-cache').then((cache) => {
-      cache.put(
-        new Request('/api/pwa-settings'),
+      return cache.put(
+        new Request(`${basePath}/api/pwa-settings`),
         new Response(JSON.stringify({ enabled, times, medicines: currentMedicines, timingStates: currentTimingStates }), {
           headers: { 'Content-Type': 'application/json' }
         })
       );
-      if (navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({ type: 'SETTINGS_UPDATED' });
+    }).then(() => {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then((reg) => {
+          if (reg.active) {
+            reg.active.postMessage({ type: 'SETTINGS_UPDATED' });
+          }
+        });
       }
     }).catch(err => console.error("Cache sync failed in page.tsx:", err));
   };
