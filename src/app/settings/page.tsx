@@ -296,6 +296,28 @@ export default function SettingsPage() {
     // 初回マウント時にCache同期
     syncSettings(initialEnabled, initialTimes, currentMeds);
 
+    // 通知が有効であれば Periodic Sync の登録を試みる
+    if (initialEnabled && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(async (reg) => {
+        if ('periodicSync' in reg) {
+          try {
+            const status = await navigator.permissions.query({
+              name: 'periodic-background-sync' as any,
+            });
+            if (status.state === 'granted') {
+              // @ts-ignore
+              await reg.periodicSync.register('check-eyedrops', {
+                minInterval: 60 * 1000,
+              });
+              console.log('Periodic background sync registered on settings load.');
+            }
+          } catch (e) {
+            console.warn('Periodic sync could not be registered on load:', e);
+          }
+        }
+      });
+    }
+
     // アップデート情報既読確認 (v1.3.0)
     const updateVersion = "v1.3.0";
     const readRecord = localStorage.getItem(`read_update_${updateVersion}`);
@@ -320,6 +342,27 @@ export default function SettingsPage() {
       if (permission !== 'granted') {
         alert("通知がブロックされています。ブラウザの設定から通知を許可してください。");
         return;
+      }
+
+      // 通知が許可され、トグルがONになったので Periodic Sync も登録を試みる
+      if ('serviceWorker' in navigator) {
+        try {
+          const reg = await navigator.serviceWorker.ready;
+          if ('periodicSync' in reg) {
+            const status = await navigator.permissions.query({
+              name: 'periodic-background-sync' as any,
+            });
+            if (status.state === 'granted') {
+              // @ts-ignore
+              await reg.periodicSync.register('check-eyedrops', {
+                minInterval: 60 * 1000,
+              });
+              console.log('Periodic background sync registered from settings toggle.');
+            }
+          }
+        } catch (err) {
+          console.warn('Periodic sync could not be registered on toggle:', err);
+        }
       }
     }
     
