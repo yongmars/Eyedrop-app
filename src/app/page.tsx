@@ -349,32 +349,11 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMounted]);
 
-  // Service Workerの登録とPeriodic Syncの有効化
+  // Service Workerの登録
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register(`${basePath}/sw.js`)
-        .then(async (reg) => {
-          console.log('Service Worker registered with scope:', reg.scope);
-          
-          // Periodic Background Sync の登録
-          if ('periodicSync' in reg) {
-            try {
-              const status = await navigator.permissions.query({
-                name: 'periodic-background-sync' as any,
-              });
-              
-              if (status.state === 'granted') {
-                // @ts-ignore
-                await reg.periodicSync.register('check-eyedrops', {
-                  minInterval: 60 * 1000,
-                });
-                console.log('Periodic background sync registered.');
-              }
-            } catch (err) {
-              console.warn('Periodic sync could not be registered:', err);
-            }
-          }
-        })
+        .then((reg) => console.log('Service Worker registered with scope:', reg.scope))
         .catch((err) => console.error('Service Worker registration failed:', err));
     }
   }, [basePath]);

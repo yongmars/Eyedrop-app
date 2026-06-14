@@ -81,6 +81,7 @@ self.addEventListener('fetch', (event) => {
 // --- 通知監視タイマー処理 ---
 let notificationInterval = null;
 const STATUS_CACHE_KEY = base + '/api/pwa-notification-status';
+const supportsNotificationTriggers = (typeof TimestampTrigger !== 'undefined');
 
 async function getNotificationStatus() {
   try {
@@ -116,9 +117,10 @@ function getScheduledDate(timeStr, offsetDays = 0) {
   return date;
 }
 
-async function initOrUpdateSchedule(data) {
-  const status = await getNotificationStatus();
-  const now = new Date();
+// Notification Triggers (TimestampTrigger) のスケジュール同期
+async function syncNotificationTriggers(data) {
+  if (!supportsNotificationTriggers) return;
+
   const times = {
     morning: data.times?.morning || "08:00",
     lunch: data.times?.lunch || "13:00",
@@ -126,55 +128,107 @@ async function initOrUpdateSchedule(data) {
     bedtime: data.times?.bedtime || "22:00"
   };
   const timingStates = data.timingStates || {};
+  const medicines = data.medicines || [];
+  const enabled = !!data.enabled;
+
+  const status = await getNotificationStatus();
+  const now = new Date();
+  const nowTime = now.getTime();
 
   let changed = false;
 
   for (const key of ['morning', 'lunch', 'dinner', 'bedtime']) {
-    const scheduledToday = getScheduledDate(times[key], 0);
-    const targetTime = scheduledToday.getTime();
+    const tag = 'eyedrop-notification-' + key;
 
-    // すでに予定時刻が保存されている場合
-    if (status[key]) {
-      const currentTarget = status[key];
-      // もし設定が変更されて、本日予定すべき時刻と現在のターゲットの時分が一致しない場合は再設定
-      const currentTargetDate = new Date(currentTarget);
-      const targetTimeStr = `${String(currentTargetDate.getHours()).padStart(2, "0")}:${String(currentTargetDate.getMinutes()).padStart(2, "0")}`;
-      if (targetTimeStr !== times[key]) {
-        if (now.getTime() < targetTime) {
-          status[key] = targetTime;
-        } else {
-          status[key] = getScheduledDate(times[key], 1).getTime();
-        }
+    const hasMedForTiming = medicines.some(med => 
+      med.timings && med.timings.includes(key)
+    );
+
+    if (!enabled || !hasMedForTiming) {
+      // スケジュール済み通知があればキャンセル
+      const activeNotifications = await self.registration.getNotifications({ tag });
+      for (const notif of activeNotifications) {
+        notif.close();
+      }
+      if (status[key]) {
+        delete status[key];
         changed = true;
       }
-      
-      // フロントエンドで既に点眼が完了(good)している場合、次回を翌日に進める
-      const isGood = timingStates[key] && timingStates[key].status === "good";
-      if (isGood && currentTarget <= now.getTime()) {
-        const tomorrowTarget = getScheduledDate(times[key], 1).getTime();
-        if (currentTarget < tomorrowTarget) {
-          status[key] = tomorrowTarget;
-          changed = true;
+      continue;
+    }
+
+    const scheduledToday = getScheduledDate(times[key], 0);
+    const targetTodayTime = scheduledToday.getTime();
+    const isGood = timingStates[key] && timingStates[key].status === "good";
+
+    let nextScheduledTime = 0;
+
+    if (isGood) {
+      nextScheduledTime = getScheduledDate(times[key], 1).getTime();
+    } else {
+      if (nowTime < targetTodayTime) {
+        nextScheduledTime = targetTodayTime;
+      } else {
+        if (status[key] && status[key] > nowTime) {
+          nextScheduledTime = status[key];
+        } else {
+          // 過去時刻で点眼未完了の場合は即時通知を送信し、次回を明日に更新
+          const title = "目薬の時間だよ！";
+          let bodyText = "忘れずに点眼しましょう！";
+          
+          if (nowTime - targetTodayTime > 15 * 60 * 1000) {
+            const targetTimeStr = `${String(scheduledToday.getHours()).padStart(2, "0")}:${String(scheduledToday.getMinutes()).padStart(2, "0")}`;
+            bodyText = `${targetTimeStr}の目薬の時間をお知らせします。`;
+          }
+
+          const options = {
+            body: bodyText,
+            icon: base + '/Daily_eyedrops192.png',
+            badge: base + '/Daily_eyedrops192.png',
+            tag: tag,
+            renotify: true,
+            data: {
+              url: base + '/'
+            }
+          };
+
+          await self.registration.showNotification(title, options);
+          nextScheduledTime = getScheduledDate(times[key], 1).getTime();
         }
       }
-    } else {
-      // 初回設定
-      const isGood = timingStates[key] && timingStates[key].status === "good";
-      if (now.getTime() < targetTime) {
-        status[key] = targetTime;
-      } else if (isGood) {
-        status[key] = getScheduledDate(times[key], 1).getTime();
-      } else {
-        status[key] = targetTime; // リカバリー対象として今日の時刻を設定
+    }
+
+    if (nextScheduledTime > nowTime) {
+      if (status[key] !== nextScheduledTime) {
+        try {
+          const title = "目薬の時間だよ！";
+          const options = {
+            body: "忘れずに点眼しましょう！",
+            icon: base + '/Daily_eyedrops192.png',
+            badge: base + '/Daily_eyedrops192.png',
+            tag: tag,
+            renotify: true,
+            // @ts-ignore
+            showTrigger: new TimestampTrigger(nextScheduledTime),
+            data: {
+              url: base + '/'
+            }
+          };
+
+          await self.registration.showNotification(title, options);
+          status[key] = nextScheduledTime;
+          changed = true;
+          console.log(`Notification scheduled for ${key} at ${new Date(nextScheduledTime).toLocaleString()}`);
+        } catch (err) {
+          console.error(`Failed to register TimestampTrigger for ${key}:`, err);
+        }
       }
-      changed = true;
     }
   }
 
   if (changed) {
     await saveNotificationStatus(status);
   }
-  return status;
 }
 
 async function checkAndSendNotification() {
@@ -186,8 +240,13 @@ async function checkAndSendNotification() {
     const data = await response.json();
     if (!data || !data.enabled) return;
 
-    // スケジュール状態の取得と更新
-    const status = await initOrUpdateSchedule(data);
+    if (supportsNotificationTriggers) {
+      await syncNotificationTriggers(data);
+      return;
+    }
+
+    // --- 以下、TimestampTrigger 非対応ブラウザ用のフォールバック処理 ---
+    const status = await getNotificationStatus();
     const now = new Date();
     const nowTime = now.getTime();
 
@@ -200,21 +259,52 @@ async function checkAndSendNotification() {
     const timingStates = data.timingStates || {};
     const medicines = data.medicines || [];
 
-    for (const key of ['morning', 'lunch', 'dinner', 'bedtime']) {
-      const targetTime = status[key];
-      if (!targetTime) continue;
+    let changed = false;
 
-      // 予定時刻を過ぎているか？
-      if (nowTime >= targetTime) {
-        // その時間帯の点眼がすでに完了（good）している場合は通知をスキップし、次回予定を翌日に更新
+    for (const key of ['morning', 'lunch', 'dinner', 'bedtime']) {
+      const scheduledToday = getScheduledDate(times[key], 0);
+      const targetTime = scheduledToday.getTime();
+
+      if (!status[key]) {
         const isGood = timingStates[key] && timingStates[key].status === "good";
+        if (nowTime < targetTime) {
+          status[key] = targetTime;
+        } else if (isGood) {
+          status[key] = getScheduledDate(times[key], 1).getTime();
+        } else {
+          status[key] = targetTime;
+        }
+        changed = true;
+      } else {
+        const currentTargetDate = new Date(status[key]);
+        const targetTimeStr = `${String(currentTargetDate.getHours()).padStart(2, "0")}:${String(currentTargetDate.getMinutes()).padStart(2, "0")}`;
+        if (targetTimeStr !== times[key]) {
+          if (nowTime < targetTime) {
+            status[key] = targetTime;
+          } else {
+            status[key] = getScheduledDate(times[key], 1).getTime();
+          }
+          changed = true;
+        }
+      }
+
+      const isGood = timingStates[key] && timingStates[key].status === "good";
+      if (isGood && status[key] <= nowTime) {
+        const tomorrowTarget = getScheduledDate(times[key], 1).getTime();
+        if (status[key] < tomorrowTarget) {
+          status[key] = tomorrowTarget;
+          changed = true;
+        }
+      }
+
+      const targetTimeFinal = status[key];
+      if (nowTime >= targetTimeFinal) {
         if (isGood) {
           status[key] = getScheduledDate(times[key], 1).getTime();
-          await saveNotificationStatus(status);
+          changed = true;
           continue;
         }
 
-        // その時間帯に対応するお薬があるか確認
         const hasMedForTiming = medicines.some(med => 
           med.timings && med.timings.includes(key)
         );
@@ -223,9 +313,8 @@ async function checkAndSendNotification() {
           const title = "目薬の時間だよ！";
           let bodyText = "忘れずに点眼しましょう！";
           
-          // 遅れて通知する場合（リカバリー時）のメッセージ調整
-          if (nowTime - targetTime > 15 * 60 * 1000) {
-            const targetDate = new Date(targetTime);
+          if (nowTime - targetTimeFinal > 15 * 60 * 1000) {
+            const targetDate = new Date(targetTimeFinal);
             const targetTimeStr = `${String(targetDate.getHours()).padStart(2, "0")}:${String(targetDate.getMinutes()).padStart(2, "0")}`;
             bodyText = `${targetTimeStr}の目薬の時間をお知らせします。`;
           }
@@ -244,10 +333,13 @@ async function checkAndSendNotification() {
           await self.registration.showNotification(title, options);
         }
 
-        // 次回予定を翌日に再スケジュール
         status[key] = getScheduledDate(times[key], 1).getTime();
-        await saveNotificationStatus(status);
+        changed = true;
       }
+    }
+
+    if (changed) {
+      await saveNotificationStatus(status);
     }
   } catch (err) {
     console.error("Error in PWA notification checker:", err);
@@ -272,13 +364,6 @@ startTimer();
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SETTINGS_UPDATED') {
     startTimer();
-  }
-});
-
-// 定期バックグラウンド同期イベント
-self.addEventListener('periodicsync', (event) => {
-  if (event.tag === 'check-eyedrops') {
-    event.waitUntil(checkAndSendNotification());
   }
 });
 
