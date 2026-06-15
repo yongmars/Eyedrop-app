@@ -104,45 +104,6 @@ export default function Home() {
     bedtime: { currentIndex: 0, status: "pending", timeLeft: 300 },
   });
 
-  const syncSettingsToCache = (currentMedicines: Medicine[], currentTimingStates: Record<TabTimingType, TimingState>) => {
-    if (!('caches' in window)) return;
-
-    const savedSettings = localStorage.getItem("eye-drop-notification-settings");
-    let enabled = false;
-    let times = {
-      morning: "08:00",
-      lunch: "13:00",
-      dinner: "18:00",
-      bedtime: "22:00"
-    };
-    if (savedSettings) {
-      try {
-        const parsed = JSON.parse(savedSettings);
-        enabled = !!parsed.enabled;
-        if (parsed.times) times = parsed.times;
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    caches.open('pwa-settings-cache').then((cache) => {
-      return cache.put(
-        new Request(`${basePath}/api/pwa-settings`),
-        new Response(JSON.stringify({ enabled, times, medicines: currentMedicines, timingStates: currentTimingStates }), {
-          headers: { 'Content-Type': 'application/json' }
-        })
-      );
-    }).then(() => {
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.ready.then((reg) => {
-          if (reg.active) {
-            reg.active.postMessage({ type: 'SETTINGS_UPDATED' });
-          }
-        });
-      }
-    }).catch(err => console.error("Cache sync failed in page.tsx:", err));
-  };
-
   const [asNeededShaken, setAsNeededShaken] = useState<Record<number, boolean>>({});
   const [asNeededStatus, setAsNeededStatus] = useState<Record<number, "pending" | "ok" | "towel">>({});
   const [asNeededProcessing, setAsNeededProcessing] = useState<Record<number, boolean>>({});
@@ -398,9 +359,6 @@ export default function Home() {
 
     localStorage.setItem("my_medication_data", JSON.stringify(medicines));
 
-    // 通知設定を読み込んでCache同期
-    syncSettingsToCache(medicines, timingStates);
-
     // お薬データの変更に合わせて timingStates の整合性を検証・補正
     setTimingStates((prev) => {
       let changed = false;
@@ -452,9 +410,6 @@ export default function Home() {
 
     localStorage.setItem("eye-drop-timingStates", JSON.stringify(timingStates));
     localStorage.setItem("eye-drop-lastSavedDate", getTodayString());
-
-    // キャッシュへ同期
-    syncSettingsToCache(medicines, timingStates);
 
     // 各時間帯の status が "good" かどうかを判定して eye-drop-history に反映
     const todayStr = getTodayString();
@@ -648,91 +603,6 @@ export default function Home() {
       window.removeEventListener("focus", handleVisibilityOrFocus);
     };
   }, [isMounted, medicines]);
-
-  // フォアグラウンド補助通知タイマー
-  useEffect(() => {
-    if (!isMounted) return;
-
-    let lastCheckedMinute = "";
-
-    const checkAndNotifyForeground = () => {
-      const savedSettings = localStorage.getItem("eye-drop-notification-settings");
-      if (!savedSettings) return;
-
-      try {
-        const parsed = JSON.parse(savedSettings);
-        if (!parsed.enabled) return;
-
-        const now = new Date();
-        const currentHourStr = String(now.getHours()).padStart(2, "0");
-        const currentMinStr = String(now.getMinutes()).padStart(2, "0");
-        const currentTimeStr = `${currentHourStr}:${currentMinStr}`;
-        const todayStr = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
-        const uniqueMinuteKey = `${todayStr}-${currentTimeStr}`;
-
-        if (lastCheckedMinute === uniqueMinuteKey) return;
-
-        const timeKeys = {
-          morning: parsed.times?.morning || "08:00",
-          lunch: parsed.times?.lunch || "13:00",
-          dinner: parsed.times?.dinner || "18:00",
-          bedtime: parsed.times?.bedtime || "22:00"
-        };
-
-        let matchedTiming: TimingType | null = null;
-        for (const [timing, timeVal] of Object.entries(timeKeys)) {
-          if (timeVal === currentTimeStr) {
-            matchedTiming = timing as TimingType;
-            break;
-          }
-        }
-
-        if (!matchedTiming) return;
-
-        // すでにその時間帯の点眼が完了している場合は通知しない
-        if (matchedTiming !== "as_needed") {
-          const timingState = timingStates[matchedTiming as TabTimingType];
-          if (timingState && timingState.status === "good") {
-            return;
-          }
-        }
-
-        // その時間帯に対応する目薬が1つ以上あるかチェック
-        const hasMedForTiming = medicines.some(med => 
-          med.timings && med.timings.includes(matchedTiming)
-        );
-
-        if (hasMedForTiming) {
-          lastCheckedMinute = uniqueMinuteKey;
-          
-          if (Notification.permission === 'granted') {
-            if ('serviceWorker' in navigator) {
-              navigator.serviceWorker.ready.then((reg) => {
-                reg.showNotification("目薬の時間だよ！", {
-                  body: "忘れずに点眼しましょう！",
-                  icon: `${basePath}/Daily_eyedrops192.png`,
-                  badge: `${basePath}/Daily_eyedrops192.png`,
-                  tag: 'eyedrop-notification-' + matchedTiming,
-                  renotify: true
-                } as NotificationOptions);
-              });
-            } else {
-              new Notification("目薬の時間だよ！", {
-                body: "忘れずに点眼しましょう！",
-                icon: `${basePath}/Daily_eyedrops192.png`
-              });
-            }
-          }
-        }
-      } catch (e) {
-        console.error("Foreground notification check error:", e);
-      }
-    };
-
-    // 10秒毎にチェック（漏れ防止）
-    const interval = setInterval(checkAndNotifyForeground, 10000);
-    return () => clearInterval(interval);
-  }, [isMounted, medicines, timingStates, basePath]);
 
   // セリフ（メッセージ）の自動更新
   useEffect(() => {

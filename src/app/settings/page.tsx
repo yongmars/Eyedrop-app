@@ -61,52 +61,6 @@ export default function SettingsPage() {
   // フォームのアコーディオン開閉状態
   const [isFormOpen, setIsFormOpen] = useState(false);
 
-  // 通知設定用ステート
-  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [notificationEnabled, setNotificationEnabled] = useState(false);
-  const [notificationTimes, setNotificationTimes] = useState({
-    morning: "08:00",
-    lunch: "13:00",
-    dinner: "18:00",
-    bedtime: "22:00",
-  });
-
-  const syncSettings = async (enabled: boolean, times: typeof notificationTimes, currentMeds: Medicine[]) => {
-    if ('caches' in window) {
-      try {
-        const savedStates = localStorage.getItem("eye-drop-timingStates");
-        let timingStates = null;
-        if (savedStates) {
-          try {
-            timingStates = JSON.parse(savedStates);
-          } catch (e) {}
-        }
-
-        const cacheData = {
-          enabled,
-          times,
-          medicines: currentMeds,
-          timingStates
-        };
-        const cache = await caches.open('pwa-settings-cache');
-        await cache.put(
-          new Request(`${basePath}/api/pwa-settings`),
-          new Response(JSON.stringify(cacheData), {
-            headers: { 'Content-Type': 'application/json' }
-          })
-        );
-        if ('serviceWorker' in navigator) {
-          const reg = await navigator.serviceWorker.ready;
-          if (reg.active) {
-            reg.active.postMessage({ type: 'SETTINGS_UPDATED' });
-          }
-        }
-      } catch (err) {
-        console.error("Cache sync failed:", err);
-      }
-    }
-  };
-
   // オートコンプリート用のステート
   const [csvMedicines, setCsvMedicines] = useState<CSVMedicine[]>([]);
   const [suggestions, setSuggestions] = useState<CSVMedicine[]>([]);
@@ -265,41 +219,8 @@ export default function SettingsPage() {
       setMedicines(currentMeds);
     }
 
-    // 通知設定の読込
-    const savedSettings = localStorage.getItem("eye-drop-notification-settings");
-    let initialEnabled = false;
-    let initialTimes = {
-      morning: "08:00",
-      lunch: "13:00",
-      dinner: "18:00",
-      bedtime: "22:00",
-    };
-    if (savedSettings) {
-      try {
-        const parsed = JSON.parse(savedSettings);
-        initialEnabled = !!parsed.enabled;
-        setNotificationEnabled(initialEnabled);
-        if (parsed.times) {
-          initialTimes = {
-            morning: parsed.times.morning || "08:00",
-            lunch: parsed.times.lunch || "13:00",
-            dinner: parsed.times.dinner || "18:00",
-            bedtime: parsed.times.bedtime || "22:00",
-          };
-          setNotificationTimes(initialTimes);
-        }
-      } catch (e) {
-        console.error("Failed to parse notification settings", e);
-      }
-    }
-
-    // 初回マウント時にCache同期
-    syncSettings(initialEnabled, initialTimes, currentMeds);
-
-
-
-    // アップデート情報既読確認 (v1.3.0)
-    const updateVersion = "v1.3.0";
+    // アップデート情報既読確認 (v1.2.1)
+    const updateVersion = "v1.2.1";
     const readRecord = localStorage.getItem(`read_update_${updateVersion}`);
     if (readRecord === "true") {
       setHasReadUpdate(true);
@@ -311,42 +232,9 @@ export default function SettingsPage() {
   // アップデート情報ボタンクリック時の処理
   const handleUpdateClick = () => {
     setIsUpdateOpen(true);
-    const updateVersion = "v1.3.0";
+    const updateVersion = "v1.2.1";
     localStorage.setItem(`read_update_${updateVersion}`, "true");
     setHasReadUpdate(true);
-  };
-
-  const handleNotificationToggle = async (checked: boolean) => {
-    if (checked) {
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        alert("通知がブロックされています。ブラウザの設定から通知を許可してください。");
-        return;
-      }
-
-    }
-    
-    setNotificationEnabled(checked);
-    const updated = {
-      enabled: checked,
-      times: notificationTimes
-    };
-    localStorage.setItem("eye-drop-notification-settings", JSON.stringify(updated));
-    syncSettings(checked, notificationTimes, medicines);
-  };
-
-  const handleNotificationTimeChange = (timing: "morning" | "lunch" | "dinner" | "bedtime", value: string) => {
-    const updatedTimes = {
-      ...notificationTimes,
-      [timing]: value
-    };
-    setNotificationTimes(updatedTimes);
-    const updated = {
-      enabled: notificationEnabled,
-      times: updatedTimes
-    };
-    localStorage.setItem("eye-drop-notification-settings", JSON.stringify(updated));
-    syncSettings(notificationEnabled, updatedTimes, medicines);
   };
 
   const handleTimingChange = (timing: TimingType) => {
@@ -397,7 +285,6 @@ export default function SettingsPage() {
 
     setMedicines(updated);
     localStorage.setItem("my_medication_data", JSON.stringify(updated));
-    syncSettings(notificationEnabled, notificationTimes, updated);
 
     // スナックバー非表示にしてタイマークリア
     if (snackbarTimerRef.current) {
@@ -458,7 +345,6 @@ export default function SettingsPage() {
     const updated = medicines.filter((med) => med.id !== id);
     setMedicines(updated);
     localStorage.setItem("my_medication_data", JSON.stringify(updated));
-    syncSettings(notificationEnabled, notificationTimes, updated);
 
     // 操作取り消し用のスナックバーを表示
     showSnackbar(`「${name}」を削除しました`, "delete", medToDelete);
@@ -570,7 +456,6 @@ export default function SettingsPage() {
       const sorted = sortMedicines(updatedMedicines);
       setMedicines(sorted);
       localStorage.setItem("my_medication_data", JSON.stringify(sorted));
-      syncSettings(notificationEnabled, notificationTimes, sorted);
 
       // 操作取り消し用のスナックバーを表示
       showSnackbar(`「${newName.trim()}」の変更を保存しました`, "edit", medToEdit);
@@ -597,7 +482,6 @@ export default function SettingsPage() {
       // ステートとlocalStorageに保存
       setMedicines(updatedMedicines);
       localStorage.setItem("my_medication_data", JSON.stringify(updatedMedicines));
-      syncSettings(notificationEnabled, notificationTimes, updatedMedicines);
 
       // フォームリセットとクローズ
       resetForm();
@@ -628,7 +512,6 @@ export default function SettingsPage() {
 
     // ③ アプリ内の目薬リストを空にする
     setMedicines([]);
-    syncSettings(false, notificationTimes, []);
 
     // ④ アラートを表示してメイン画面へ戻る
     alert("アプリを初期化しました。");
@@ -1004,66 +887,6 @@ export default function SettingsPage() {
       )}
     </div>
 
-      {/* 3. 通知設定（アコーディオン形式） */}
-      <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-          className="w-full px-6 py-5 flex justify-between items-center font-bold text-slate-800 dark:text-white cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors"
-        >
-          <span className="flex items-center gap-2 text-base">
-            🔔 通知設定
-          </span>
-          <span className="text-sm text-gray-400">
-            {isNotificationOpen ? "▲ 閉じる" : "▼ 開く"}
-          </span>
-        </button>
-
-        {isNotificationOpen && (
-          <div className="px-6 pb-6 pt-4 space-y-6 border-t border-gray-50 dark:border-gray-750/50">
-            {/* 1. 通知トグル */}
-            <label className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-900 rounded-2xl cursor-pointer touch-manipulation min-h-[48px]">
-              <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                目薬の通知を受け取る
-              </span>
-              <input
-                type="checkbox"
-                checked={notificationEnabled}
-                onChange={(e) => handleNotificationToggle(e.target.checked)}
-                className="w-12 h-6 rounded-full bg-gray-300 checked:bg-blue-600 appearance-none cursor-pointer relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:w-5 after:h-5 after:rounded-full after:bg-white after:transition-transform checked:after:translate-x-6 focus:outline-none"
-              />
-            </label>
-
-            {/* 2. タイムピッカーリスト */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold text-slate-700 dark:text-slate-350">
-                通知時刻の設定
-              </h3>
-              {([
-                { key: "morning", label: "朝の通知時間", icon: "/morning.webp" },
-                { key: "lunch", label: "昼の通知時間", icon: "/lunch.webp" },
-                { key: "dinner", label: "夕の通知時間", icon: "/dinner.webp" },
-                { key: "bedtime", label: "就寝前の通知時間", icon: "/bedtime.webp" }
-              ] as const).map((item) => (
-                <div key={item.key} className="flex items-center justify-between p-3.5 bg-gray-50 dark:bg-slate-900 border border-gray-150 dark:border-gray-750 rounded-2xl">
-                  <div className="flex items-center gap-2">
-                    <img src={`${basePath}${item.icon}`} alt="" className="w-7 h-7 object-contain flex-shrink-0" />
-                    <span className="text-sm font-bold text-slate-750 dark:text-slate-300">{item.label}</span>
-                  </div>
-                  <input
-                    type="time"
-                    value={notificationTimes[item.key]}
-                    disabled={!notificationEnabled}
-                    onChange={(e) => handleNotificationTimeChange(item.key, e.target.value)}
-                    className="p-2 border border-gray-200 dark:border-gray-750 bg-white dark:bg-slate-800 rounded-xl focus:outline-none text-slate-800 dark:text-white font-bold text-sm disabled:opacity-50"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* アプリ情報エリア（フッター） */}
       <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800 space-y-4">
         <button
@@ -1079,7 +902,7 @@ export default function SettingsPage() {
               </span>
             )}
           </span>
-          <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ver. 1.3.1</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ver. 1.2.1</span>
         </button>
 
         <button
@@ -1187,9 +1010,9 @@ export default function SettingsPage() {
                   すると確認画面がでますので、「OK」を押すと削除されます。
                 </p>
 
-                <p className="font-extrabold text-blue-600 dark:text-blue-400 mt-4">■ 4. スマホのホーム画面に追加する（通知機能の利用）</p>
+                <p className="font-extrabold text-blue-600 dark:text-blue-400 mt-4">■ 4. スマホのホーム画面に追加する</p>
                 <p className="pl-2">
-                  本アプリをホーム画面に追加（インストール）すると、アプリを閉じている状態でも指定の時間に通知が届くようになります。
+                  本アプリをホーム画面に追加（インストール）すると、通常のブラウザよりアプリらしく使えます。
                   <br /><br />
                   <strong className="font-bold text-slate-850 dark:text-white">・LINEの中で開いている場合：</strong><br />
                   画面の端（右上、または右下）にあるメニューやコンパスのマークをタップして、一度通常のブラウザ（ChromeやSafari）で開き直してください。
@@ -1234,20 +1057,12 @@ export default function SettingsPage() {
             <div className="p-6 overflow-y-auto max-h-[60vh] custom-scrollbar bg-white dark:bg-slate-800">
               <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-left space-y-4">
                 <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
-                  <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.3.1 (2026年6月12日)</p>
+                  <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.2.1 (2026年6月16日)</p>
                   <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
                     ・LINE内ブラウザで開いている場合に外部ブラウザ（ChromeやSafari）への切り替えを促す案内バナーを最上部に表示する機能を追加しました。<br />
-                    ・使い方ダイアログの内容を拡充し、PWAのホーム画面追加手順とLINE対策を追加しました。
-                  </p>
-                </div>
-                <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
-                  <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.3.0 (2026年6月12日)</p>
-                  <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    ・PWAスマート通知機能（定時ローカル通知）を搭載しました。<br />
-                    &nbsp;&nbsp;&nbsp;朝、昼、夕、就寝前の指定時間に自動でローカル通知が届きます。<br />
-                    &nbsp;&nbsp;&nbsp;（その時間帯に対象のお薬が1つでも登録されている場合のみ作動）<br />
+                    ・使い方ダイアログの内容を拡充し、PWAのホーム画面追加手順とLINE対策を追加しました。<br />
                     ・設定画面のレイアウトを整理し、登録済みの目薬一覧を最上部に配置。<br />
-                    &nbsp;&nbsp;&nbsp;登録・編集フォームおよび通知設定をそれぞれアコーディオン形式にまとめました。
+                    &nbsp;&nbsp;&nbsp;登録・編集フォームをアコーディオン形式にまとめました。
                   </p>
                 </div>
                 <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
