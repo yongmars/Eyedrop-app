@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
@@ -44,6 +44,16 @@ const typeOrder: Record<MedicineType, number> = {
 
 const initialMedicines: Medicine[] = [];
 
+const sortMedicines = (list: Medicine[]): Medicine[] => {
+  return [...list].sort((a, b) => {
+    const diff = typeOrder[a.type] - typeOrder[b.type];
+    if (diff === 0) {
+      return a.id - b.id;
+    }
+    return diff;
+  });
+};
+
 export default function SettingsPage() {
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
   const router = useRouter();
@@ -63,7 +73,6 @@ export default function SettingsPage() {
 
   // オートコンプリート用のステート
   const [csvMedicines, setCsvMedicines] = useState<CSVMedicine[]>([]);
-  const [suggestions, setSuggestions] = useState<CSVMedicine[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const autocompleteRef = useRef<HTMLDivElement>(null);
 
@@ -143,10 +152,9 @@ export default function SettingsPage() {
   }, []);
 
   // 入力値に基づいてサジェストをフィルタリング
-  useEffect(() => {
+  const suggestions = useMemo(() => {
     if (!newName.trim() || csvMedicines.length === 0) {
-      setSuggestions([]);
-      return;
+      return [];
     }
 
     const query = newName.trim().toLowerCase();
@@ -165,7 +173,7 @@ export default function SettingsPage() {
       return a.name.localeCompare(b.name);
     });
 
-    setSuggestions(sorted.slice(0, 8)); // 最大8件表示
+    return sorted.slice(0, 8); // 最大8件表示
   }, [newName, csvMedicines]);
 
   // サジェスト選択時の連動処理
@@ -398,17 +406,6 @@ export default function SettingsPage() {
     }
   };
 
-  // ソートロジック
-  const sortMedicines = (list: Medicine[]): Medicine[] => {
-    return [...list].sort((a, b) => {
-      const diff = typeOrder[a.type] - typeOrder[b.type];
-      if (diff === 0) {
-        return a.id - b.id;
-      }
-      return diff;
-    });
-  };
-
   // 目薬の登録・更新処理
   const handleAddMedicine = (e: React.FormEvent) => {
     e.preventDefault();
@@ -509,6 +506,7 @@ export default function SettingsPage() {
     localStorage.removeItem("eye-drop-timingStates");
     localStorage.removeItem("eye-drop-currentIndex");
     localStorage.removeItem("eye-drop-status");
+    localStorage.removeItem("eye-drop-history");
 
     // ③ アプリ内の目薬リストを空にする
     setMedicines([]);

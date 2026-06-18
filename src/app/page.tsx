@@ -43,11 +43,16 @@ interface DailyHistory {
   bedtime?: boolean;
 }
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+}
+
 export default function Home() {
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
   // PWA インストールプロンプト用のステート
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isReadyToInstall, setIsReadyToInstall] = useState(false);
 
   const greetingTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -117,26 +122,9 @@ export default function Home() {
   const [shaken, setShaken] = useState(false);
 
   // デバッグ用ログ
-  const [debugLog, setDebugLog] = useState<string[]>(["App Started"]);
+  const [, setDebugLog] = useState<string[]>(["App Started"]);
   const addDebug = (msg: string) => {
     setDebugLog((prev) => [...prev, msg].slice(-5));
-  };
-
-  // 現在の時間帯で次にさす予定の薬名を取得するヘルパー関数
-  const getNextMedicineName = (timing: TabTimingType): string => {
-    const tNormalMeds = medicines.filter(
-      (med) => med.timings?.includes(timing) && !med.timings?.includes("as_needed")
-    );
-    const sortedNormal = sortMedicines(tNormalMeds);
-    const currentState = timingStates[timing];
-    const currentMed = sortedNormal[currentState?.currentIndex ?? 0];
-    if (currentMed) {
-      return currentMed.name;
-    }
-    if (medicines.length > 0) {
-      return medicines[0].name;
-    }
-    return "目薬";
   };
 
   const getInitialTiming = (): TabTimingType => {
@@ -323,7 +311,7 @@ export default function Home() {
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
-      setDeferredPrompt(e);
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
       setIsReadyToInstall(true);
       addDebug("PWA install prompt is ready");
     };
@@ -690,7 +678,6 @@ export default function Home() {
   const handleNormalDrop = (med: Medicine) => {
     addDebug("1. handleNormalDrop start");
     stopGreeting();
-    const currentState = timingStates[selectedTiming];
     if (isProcessing) {
       addDebug("2. return early: isProcessing is true");
       return;

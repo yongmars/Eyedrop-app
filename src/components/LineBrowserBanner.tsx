@@ -1,20 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
 export default function LineBrowserBanner() {
-  const [isLine, setIsLine] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
-      
-      // LINEブラウザの判定
-      if (/Line/i.test(ua)) {
-        setIsLine(true);
-      }
-    }
-  }, []);
+  const ua = typeof navigator === "undefined" ? "" : navigator.userAgent || navigator.vendor;
+  const isLine = /Line/i.test(ua);
 
   if (!isLine) return null;
 

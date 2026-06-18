@@ -6,10 +6,6 @@ import Image from "next/image";
 import Navbar from "@/components/Navbar";
 import pawImg from "../../../public/paw.webp";
 
-
-type TabTimingType = "morning" | "lunch" | "dinner" | "bedtime";
-type HistoryTimingType = "morning" | "lunch" | "evening" | "bedtime";
-
 interface DailyHistory {
   morning?: boolean;
   lunch?: boolean;
