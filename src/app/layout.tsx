@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "../components/Navbar";
 import LineBrowserBanner from "../components/LineBrowserBanner";
+import LocalNotificationScheduler from "../components/LocalNotificationScheduler";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -56,6 +57,7 @@ export default function RootLayout({
 
           {/* Bottom Navigation Bar */}
           <Navbar />
+          <LocalNotificationScheduler />
         </div>
       </body>
     </html>

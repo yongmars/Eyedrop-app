@@ -3,6 +3,17 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import {
+  DEFAULT_NOTIFICATION_SETTINGS,
+  isNotificationSupported,
+  LocalNotificationSettings,
+  MEDICINE_DATA_CHANGED_EVENT,
+  NOTIFICATION_TIMINGS,
+  NOTIFICATION_TIMING_LABELS,
+  NotificationTiming,
+  readNotificationSettings,
+  saveNotificationSettings,
+} from "../../lib/localNotifications";
 
 type MedicineType = "water" | "suspension" | "gel" | "ointment";
 type StorageType = "room" | "cold";
@@ -94,6 +105,11 @@ export default function SettingsPage() {
   const [isUpdateOpen, setIsUpdateOpen] = useState(false);
   const [isLicenseOpen, setIsLicenseOpen] = useState(false);
   const [hasReadUpdate, setHasReadUpdate] = useState(true);
+  const [notificationSettings, setNotificationSettings] =
+    useState<LocalNotificationSettings>(DEFAULT_NOTIFICATION_SETTINGS);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">(
+    "unsupported"
+  );
 
   // アンマウント時にタイマーをクリーンアップ
   useEffect(() => {
@@ -235,6 +251,9 @@ export default function SettingsPage() {
     } else {
       setHasReadUpdate(false);
     }
+
+    setNotificationSettings(readNotificationSettings());
+    setNotificationPermission(isNotificationSupported() ? Notification.permission : "unsupported");
   }, []);
 
   // アップデート情報ボタンクリック時の処理
@@ -251,6 +270,58 @@ export default function SettingsPage() {
         ? prev.filter((t) => t !== timing)
         : [...prev, timing]
     );
+  };
+
+  const updateNotificationSettings = (nextSettings: LocalNotificationSettings) => {
+    setNotificationSettings(nextSettings);
+    saveNotificationSettings(nextSettings);
+  };
+
+  const notifyMedicineDataChanged = () => {
+    window.dispatchEvent(new Event(MEDICINE_DATA_CHANGED_EVENT));
+  };
+
+  const handleNotificationMasterToggle = (enabled: boolean) => {
+    updateNotificationSettings({
+      ...notificationSettings,
+      enabled,
+    });
+  };
+
+  const handleNotificationSlotToggle = (timing: NotificationTiming, enabled: boolean) => {
+    updateNotificationSettings({
+      ...notificationSettings,
+      slots: {
+        ...notificationSettings.slots,
+        [timing]: {
+          ...notificationSettings.slots[timing],
+          enabled,
+        },
+      },
+    });
+  };
+
+  const handleNotificationTimeChange = (timing: NotificationTiming, time: string) => {
+    updateNotificationSettings({
+      ...notificationSettings,
+      slots: {
+        ...notificationSettings.slots,
+        [timing]: {
+          ...notificationSettings.slots[timing],
+          time,
+        },
+      },
+    });
+  };
+
+  const handleNotificationPermissionRequest = async () => {
+    if (!isNotificationSupported()) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
   };
 
   // スナックバー表示処理
@@ -293,6 +364,7 @@ export default function SettingsPage() {
 
     setMedicines(updated);
     localStorage.setItem("my_medication_data", JSON.stringify(updated));
+    notifyMedicineDataChanged();
 
     // スナックバー非表示にしてタイマークリア
     if (snackbarTimerRef.current) {
@@ -353,6 +425,7 @@ export default function SettingsPage() {
     const updated = medicines.filter((med) => med.id !== id);
     setMedicines(updated);
     localStorage.setItem("my_medication_data", JSON.stringify(updated));
+    notifyMedicineDataChanged();
 
     // 操作取り消し用のスナックバーを表示
     showSnackbar(`「${name}」を削除しました`, "delete", medToDelete);
@@ -453,6 +526,7 @@ export default function SettingsPage() {
       const sorted = sortMedicines(updatedMedicines);
       setMedicines(sorted);
       localStorage.setItem("my_medication_data", JSON.stringify(sorted));
+      notifyMedicineDataChanged();
 
       // 操作取り消し用のスナックバーを表示
       showSnackbar(`「${newName.trim()}」の変更を保存しました`, "edit", medToEdit);
@@ -479,6 +553,7 @@ export default function SettingsPage() {
       // ステートとlocalStorageに保存
       setMedicines(updatedMedicines);
       localStorage.setItem("my_medication_data", JSON.stringify(updatedMedicines));
+      notifyMedicineDataChanged();
 
       // フォームリセットとクローズ
       resetForm();
@@ -500,6 +575,7 @@ export default function SettingsPage() {
 
     // ① LocalStorage に空配列を設定して初期化
     localStorage.setItem("my_medication_data", JSON.stringify([]));
+    notifyMedicineDataChanged();
 
     // ② 関連する一時ステートなどを削除
     localStorage.removeItem("eye-drop-selectedTiming");
@@ -884,6 +960,98 @@ export default function SettingsPage() {
         </form>
       )}
     </div>
+
+        {/* 3. 通知設定 */}
+        <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+          <div className="px-6 py-5 border-b border-gray-50 dark:border-gray-750/50">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-base font-black text-slate-800 dark:text-white">通知設定</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  決まった時間に点眼をお知らせします。
+                </p>
+              </div>
+              <label className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+                <span>{notificationSettings.enabled ? "ON" : "OFF"}</span>
+                <input
+                  type="checkbox"
+                  checked={notificationSettings.enabled}
+                  onChange={(e) => handleNotificationMasterToggle(e.target.checked)}
+                  className="w-6 h-6 rounded border-gray-300 dark:border-gray-750 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="px-6 py-5 space-y-4">
+            {NOTIFICATION_TIMINGS.map((timing) => {
+              const slot = notificationSettings.slots[timing];
+              return (
+                <div
+                  key={timing}
+                  className="flex items-center gap-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-slate-900 p-4"
+                >
+                  <label className="flex items-center gap-3 flex-1 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={slot.enabled}
+                      onChange={(e) => handleNotificationSlotToggle(timing, e.target.checked)}
+                      disabled={!notificationSettings.enabled}
+                      className="w-6 h-6 rounded border-gray-300 dark:border-gray-750 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40 flex-shrink-0"
+                    />
+                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                      {NOTIFICATION_TIMING_LABELS[timing]}
+                    </span>
+                  </label>
+                  <input
+                    type="time"
+                    value={slot.time}
+                    onChange={(e) => handleNotificationTimeChange(timing, e.target.value)}
+                    disabled={!notificationSettings.enabled || !slot.enabled}
+                    className="w-28 p-3 text-base font-bold border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-950 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 dark:text-white disabled:opacity-50"
+                  />
+                </div>
+              );
+            })}
+
+            <div className="rounded-2xl border border-blue-100 dark:border-blue-900/40 bg-blue-50/60 dark:bg-blue-955/20 p-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-black text-slate-800 dark:text-white">通知の許可</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                    現在の状態: {
+                      notificationPermission === "granted"
+                        ? "許可されています"
+                        : notificationPermission === "denied"
+                          ? "ブロックされています"
+                          : notificationPermission === "default"
+                            ? "未設定です"
+                            : "このブラウザでは使えません"
+                    }
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleNotificationPermissionRequest}
+                  disabled={notificationPermission === "granted" || notificationPermission === "unsupported"}
+                  className="shrink-0 px-4 py-3 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 disabled:bg-slate-300 disabled:dark:bg-slate-700 text-white disabled:text-slate-500 dark:disabled:text-slate-400 text-xs font-black rounded-2xl transition-all cursor-pointer disabled:cursor-not-allowed min-h-[44px]"
+                >
+                  許可する
+                </button>
+              </div>
+
+              {notificationPermission === "denied" && (
+                <p className="text-xs font-bold text-red-600 dark:text-red-400">
+                  通知がブロックされています。端末またはブラウザの設定から、このアプリの通知を許可してください。
+                </p>
+              )}
+            </div>
+
+            <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400 bg-amber-50 dark:bg-amber-955/20 border border-amber-100 dark:border-amber-900/40 rounded-2xl p-4">
+              この通知は、アプリが起動中またはバックグラウンドで動作している間に届きます。端末やブラウザの状態によって、通知が遅れたり届かないことがあります。
+            </p>
+          </div>
+        </div>
 
       {/* アプリ情報エリア（フッター） */}
       <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800 space-y-4">
