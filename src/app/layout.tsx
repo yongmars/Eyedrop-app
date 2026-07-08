@@ -4,6 +4,15 @@ import "./globals.css";
 import Navbar from "../components/Navbar";
 import LineBrowserBanner from "../components/LineBrowserBanner";
 import LocalNotificationScheduler from "../components/LocalNotificationScheduler";
+import {
+  APP_DESCRIPTION,
+  APP_NAME,
+  APP_SHORT_NAME,
+  OGP_DESCRIPTION,
+  OGP_IMAGE_HEIGHT,
+  OGP_IMAGE_PATH,
+  OGP_IMAGE_WIDTH,
+} from "../lib/siteMetadata";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,15 +33,45 @@ export const viewport: Viewport = {
 };
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "http://localhost:3000");
+const ogpImageUrl = `${basePath}${OGP_IMAGE_PATH}`;
 
 export const metadata: Metadata = {
-  title: "ノクトのまいにち点眼管理アプリ",
-  description: "楽しく目薬の習慣をつけるアプリ",
+  metadataBase: new URL(siteUrl),
+  title: APP_NAME,
+  description: APP_DESCRIPTION,
   manifest: `${basePath}/manifest.webmanifest`,
+  openGraph: {
+    type: "website",
+    locale: "ja_JP",
+    title: APP_NAME,
+    description: OGP_DESCRIPTION,
+    siteName: APP_NAME,
+    images: [
+      {
+        url: ogpImageUrl,
+        width: OGP_IMAGE_WIDTH,
+        height: OGP_IMAGE_HEIGHT,
+        alt: `${APP_NAME}のアイコン`,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title: APP_NAME,
+    description: OGP_DESCRIPTION,
+    images: [ogpImageUrl],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "まいにち点眼",
+    title: APP_SHORT_NAME,
   },
 };
 

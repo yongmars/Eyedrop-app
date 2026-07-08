@@ -1,13 +1,18 @@
 import type { MetadataRoute } from "next";
+import {
+  APP_DESCRIPTION,
+  APP_NAME,
+  APP_SHORT_NAME,
+} from "../lib/siteMetadata";
 
 export const dynamic = "force-static";
 
 export default function manifest(): MetadataRoute.Manifest {
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
   return {
-    name: "ノクトのまいにち点眼管理アプリ",
-    short_name: "まいにち点眼",
-    description: "楽しく目薬の習慣をつけるアプリ",
+    name: APP_NAME,
+    short_name: APP_SHORT_NAME,
+    description: APP_DESCRIPTION,
     start_url: `${basePath}/`,
     display: "standalone",
     background_color: "#0f172a",
