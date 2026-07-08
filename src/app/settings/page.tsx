@@ -81,6 +81,7 @@ export default function SettingsPage() {
 
   // フォームのアコーディオン開閉状態
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isNotificationSettingsOpen, setIsNotificationSettingsOpen] = useState(false);
 
   // オートコンプリート用のステート
   const [csvMedicines, setCsvMedicines] = useState<CSVMedicine[]>([]);
@@ -963,10 +964,22 @@ export default function SettingsPage() {
 
         {/* 3. 通知設定 */}
         <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-          <div className="px-6 py-5 border-b border-gray-50 dark:border-gray-750/50">
-            <div className="flex items-center justify-between gap-4">
+          <button
+            type="button"
+            onClick={() => setIsNotificationSettingsOpen(!isNotificationSettingsOpen)}
+            className="w-full px-6 py-5 flex justify-between items-center font-bold text-slate-800 dark:text-white cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors"
+          >
+            <span className="flex items-center gap-2 text-base">通知設定</span>
+            <span className="text-sm text-gray-400">
+              {isNotificationSettingsOpen ? "▲ 閉じる" : "▼ 開く"}
+            </span>
+          </button>
+
+          {isNotificationSettingsOpen && (
+          <div className="px-6 py-5 space-y-4 border-t border-gray-50 dark:border-gray-750/50">
+            <div className="flex items-center justify-between gap-4 rounded-2xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-slate-900 p-4">
               <div>
-                <h2 className="text-base font-black text-slate-800 dark:text-white">通知設定</h2>
+                <p className="text-sm font-black text-slate-800 dark:text-white">通知機能</p>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                   決まった時間に点眼をお知らせします。
                 </p>
@@ -981,9 +994,6 @@ export default function SettingsPage() {
                 />
               </label>
             </div>
-          </div>
-
-          <div className="px-6 py-5 space-y-4">
             {NOTIFICATION_TIMINGS.map((timing) => {
               const slot = notificationSettings.slots[timing];
               return (
@@ -1051,6 +1061,7 @@ export default function SettingsPage() {
               この通知は、アプリが起動中またはバックグラウンドで動作している間に届きます。端末やブラウザの状態によって、通知が遅れたり届かないことがあります。
             </p>
           </div>
+          )}
         </div>
 
       {/* アプリ情報エリア（フッター） */}
