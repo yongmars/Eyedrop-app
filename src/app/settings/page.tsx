@@ -54,6 +54,7 @@ const typeOrder: Record<MedicineType, number> = {
 };
 
 const initialMedicines: Medicine[] = [];
+const UPDATE_VERSION = "v1.3.0";
 
 const sortMedicines = (list: Medicine[]): Medicine[] => {
   return [...list].sort((a, b) => {
@@ -244,9 +245,8 @@ export default function SettingsPage() {
       setMedicines(currentMeds);
     }
 
-    // アップデート情報既読確認 (v1.2.1)
-    const updateVersion = "v1.2.1";
-    const readRecord = localStorage.getItem(`read_update_${updateVersion}`);
+    // アップデート情報既読確認
+    const readRecord = localStorage.getItem(`read_update_${UPDATE_VERSION}`);
     if (readRecord === "true") {
       setHasReadUpdate(true);
     } else {
@@ -260,8 +260,7 @@ export default function SettingsPage() {
   // アップデート情報ボタンクリック時の処理
   const handleUpdateClick = () => {
     setIsUpdateOpen(true);
-    const updateVersion = "v1.2.1";
-    localStorage.setItem(`read_update_${updateVersion}`, "true");
+    localStorage.setItem(`read_update_${UPDATE_VERSION}`, "true");
     setHasReadUpdate(true);
   };
 
@@ -1079,7 +1078,7 @@ export default function SettingsPage() {
               </span>
             )}
           </span>
-          <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ver. 1.2.1</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ver. 1.3.0</span>
         </button>
 
         <button
@@ -1233,6 +1232,17 @@ export default function SettingsPage() {
             {/* モーダルコンテンツ */}
             <div className="p-6 overflow-y-auto max-h-[60vh] custom-scrollbar bg-white dark:bg-slate-800">
               <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-left space-y-4">
+                <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
+                  <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.3.0 (2026年7月)</p>
+                  <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    ・点眼薬の候補表示を改善しました<br />
+                    &nbsp;&nbsp;&nbsp;候補に表示される点眼薬の品名を追加しました。<br />
+                    ・通知機能を追加しました<br />
+                    &nbsp;&nbsp;&nbsp;通知機能を試験的に追加しましたが、端末のスリープやバックグラウンド制限により、<br />
+                    &nbsp;&nbsp;&nbsp;安定して通知が届かない場合があります。<br />
+                    &nbsp;&nbsp;&nbsp;今後の課題として、引き続き調整していきます。
+                  </p>
+                </div>
                 <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
                   <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.2.1 (2026年6月16日)</p>
                   <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
