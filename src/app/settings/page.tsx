@@ -61,7 +61,7 @@ const typeOrder: Record<MedicineType, number> = {
 };
 
 const initialMedicines: Medicine[] = [];
-const UPDATE_VERSION = "v1.3.0";
+const UPDATE_VERSION = "v1.3.1";
 
 const sortMedicines = (list: Medicine[]): Medicine[] => {
   return [...list].sort((a, b) => {
@@ -1155,7 +1155,7 @@ export default function SettingsPage() {
               </span>
             )}
           </span>
-          <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ver. 1.3.0</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ver. 1.3.1</span>
         </button>
 
         <button
@@ -1309,6 +1309,15 @@ export default function SettingsPage() {
             {/* モーダルコンテンツ */}
             <div className="p-6 overflow-y-auto max-h-[60vh] custom-scrollbar bg-white dark:bg-slate-800">
               <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-left space-y-4">
+                <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
+                  <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.3.1</p>
+                  <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    ・5分待機タイマーの終了時に、お知らせ音が鳴る機能を追加しました。<br />
+                    ・音のオン／オフを設定できるようにしました。<br />
+                    ・アプリを開いている状態で、次の点眼タイミングに気づきやすくなりました。<br />
+                    &nbsp;&nbsp;&nbsp;端末のスリープやバックグラウンド状態では、音が鳴らない場合があります。
+                  </p>
+                </div>
                 <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
                   <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.3.0 (2026年7月)</p>
                   <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
