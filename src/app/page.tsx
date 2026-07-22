@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
+import { playTimerChime, prepareTimerChimeAudio } from "../lib/timerChime";
 
 type MedicineType = "water" | "suspension" | "gel" | "ointment";
 type StorageType = "room" | "cold";
@@ -48,6 +49,8 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 }
 
+const PENDING_TIMER_FINISHED_STORAGE_KEY = "eye-drop-pending-timer-finished";
+
 export default function Home() {
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
@@ -56,6 +59,8 @@ export default function Home() {
   const [isReadyToInstall, setIsReadyToInstall] = useState(false);
 
   const greetingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerFinishedNoticeTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const notifiedTimerKeysRef = useRef<Set<string>>(new Set());
   const isLoaded = useRef(false);
 
   const startGreeting = () => {
@@ -117,6 +122,7 @@ export default function Home() {
   const touchStartY = useRef(0); // スマホ用タップ判定
 
   const [message, setMessage] = useState("忘れずに目薬をさしましょう！");
+  const [timerFinishedNotice, setTimerFinishedNotice] = useState<string | null>(null);
   const [character, setCharacter] = useState<"saku" | "lux" | "noct">("lux");
   const [showGreeting, setShowGreeting] = useState(false);
   const [shaken, setShaken] = useState(false);
@@ -146,6 +152,81 @@ export default function Home() {
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     const dd = String(d.getDate()).padStart(2, "0");
     return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const getAdvancedWaitingState = (
+    timing: TabTimingType,
+    state: TimingState,
+    currentMeds: Medicine[]
+  ): TimingState => {
+    const tNormalMeds = currentMeds.filter(
+      (med) => med.timings?.includes(timing) && !med.timings?.includes("as_needed")
+    );
+    const sortedNormal = sortMedicines(tNormalMeds);
+    const nextIndex = state.currentIndex + 1;
+
+    if (nextIndex >= sortedNormal.length) {
+      return {
+        currentIndex: nextIndex,
+        status: "good",
+        timeLeft: 0,
+      };
+    }
+
+    return {
+      currentIndex: nextIndex,
+      status: "pending",
+      timeLeft: 300,
+    };
+  };
+
+  const notifyTimerFinished = (timing: TabTimingType, timerKey: string) => {
+    if (document.visibilityState !== "visible") {
+      const raw = localStorage.getItem(PENDING_TIMER_FINISHED_STORAGE_KEY);
+      let pendingTimers: Array<{ timing: TabTimingType; timerKey: string }> = [];
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          pendingTimers = Array.isArray(parsed) ? parsed : [];
+        } catch {
+          pendingTimers = [];
+        }
+      }
+      if (!pendingTimers.some((timer) => timer.timerKey === timerKey)) {
+        pendingTimers.push({ timing, timerKey });
+        localStorage.setItem(PENDING_TIMER_FINISHED_STORAGE_KEY, JSON.stringify(pendingTimers));
+      }
+      return;
+    }
+
+    if (notifiedTimerKeysRef.current.has(timerKey)) return;
+    notifiedTimerKeysRef.current.add(timerKey);
+
+    setSelectedTiming(timing);
+    setTimerFinishedNotice("5分たったよ。次の目薬に進もう。");
+    if (timerFinishedNoticeTimerRef.current) {
+      clearTimeout(timerFinishedNoticeTimerRef.current);
+    }
+    timerFinishedNoticeTimerRef.current = setTimeout(() => {
+      setTimerFinishedNotice(null);
+      timerFinishedNoticeTimerRef.current = null;
+    }, 6000);
+
+    void playTimerChime();
+  };
+
+  const notifyPendingTimerFinished = () => {
+    const raw = localStorage.getItem(PENDING_TIMER_FINISHED_STORAGE_KEY);
+    if (!raw) return;
+
+    localStorage.removeItem(PENDING_TIMER_FINISHED_STORAGE_KEY);
+    try {
+      const pendingTimers = JSON.parse(raw) as Array<{ timing: TabTimingType; timerKey: string }>;
+      if (!Array.isArray(pendingTimers)) return;
+      pendingTimers.forEach(({ timing, timerKey }) => notifyTimerFinished(timing, timerKey));
+    } catch {
+      // 壊れた予約は破棄して、画面の進行を優先します。
+    }
   };
 
   // localStorageからのハイドレーション安全なデータ読み込み
@@ -197,6 +278,7 @@ export default function Home() {
         const loadedStates: Record<TabTimingType, TimingState> = JSON.parse(savedStates);
         const now = Date.now();
         let stateChanged = false;
+        const finishedTimers: Array<{ timing: TabTimingType; timerKey: string }> = [];
 
         // ロードした状態のうち waiting 状態のタイマーを現在時刻で再計算
         (Object.keys(loadedStates) as TabTimingType[]).forEach((t) => {
@@ -212,25 +294,8 @@ export default function Home() {
               } else {
                 // 既に時間が経過している場合、次の薬に進める
                 localStorage.removeItem(`eye-drop-timer-endTime-${t}`);
-                const tNormalMeds = currentMeds.filter(
-                  (med) => med.timings?.includes(t) && !med.timings?.includes("as_needed")
-                );
-                const sortedNormal = sortMedicines(tNormalMeds);
-                const nextIndex = state.currentIndex + 1;
-
-                if (nextIndex >= sortedNormal.length) {
-                  loadedStates[t] = {
-                    currentIndex: nextIndex,
-                    status: "good",
-                    timeLeft: 0,
-                  };
-                } else {
-                  loadedStates[t] = {
-                    currentIndex: nextIndex,
-                    status: "pending",
-                    timeLeft: 300,
-                  };
-                }
+                loadedStates[t] = getAdvancedWaitingState(t, state, currentMeds);
+                finishedTimers.push({ timing: t, timerKey: `${t}-${endTime}` });
                 stateChanged = true;
               }
             } else {
@@ -245,6 +310,7 @@ export default function Home() {
         if (stateChanged) {
           localStorage.setItem("eye-drop-timingStates", JSON.stringify(loadedStates));
         }
+        finishedTimers.forEach(({ timing, timerKey }) => notifyTimerFinished(timing, timerKey));
       } catch (e) {
         console.error("Failed to parse timingStates", e);
       }
@@ -255,6 +321,14 @@ export default function Home() {
     // ロード完了をマーク
     isLoaded.current = true;
     setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (timerFinishedNoticeTimerRef.current) {
+        clearTimeout(timerFinishedNoticeTimerRef.current);
+      }
+    };
   }, []);
 
   // 起動時の初期化および挨拶タイマー（pending状態のみ）
@@ -456,6 +530,7 @@ export default function Home() {
   useEffect(() => {
     const timer = setInterval(() => {
       const now = Date.now();
+      const finishedTimers: Array<{ timing: TabTimingType; timerKey: string }> = [];
 
       setTimingStates((prev) => {
         let changed = false;
@@ -488,31 +563,17 @@ export default function Home() {
             } else {
               // 待機終了 -> 次の目薬へ進む
               localStorage.removeItem(`eye-drop-timer-endTime-${t}`);
-              const tNormalMeds = medicines.filter(
-                (med) => med.timings?.includes(t) && !med.timings?.includes("as_needed")
-              );
-              const sortedNormal = sortMedicines(tNormalMeds);
-              const nextIndex = state.currentIndex + 1;
-
-              if (nextIndex >= sortedNormal.length) {
-                next[t] = {
-                  currentIndex: nextIndex,
-                  status: "good",
-                  timeLeft: 0,
-                };
-              } else {
-                next[t] = {
-                  currentIndex: nextIndex,
-                  status: "pending",
-                  timeLeft: 300,
-                };
-              }
+              const timerKey = endTimeStr ? `${t}-${endTimeStr}` : `${t}-${now}`;
+              next[t] = getAdvancedWaitingState(t, state, medicines);
+              finishedTimers.push({ timing: t, timerKey });
             }
           }
         });
 
         return changed ? next : prev;
       });
+
+      finishedTimers.forEach(({ timing, timerKey }) => notifyTimerFinished(timing, timerKey));
     }, 1000);
 
     return () => clearInterval(timer);
@@ -570,6 +631,7 @@ export default function Home() {
     const handleVisibilityOrFocus = () => {
       if (document.visibilityState === "visible") {
         checkAndUpdateTimeAndDate(medicines);
+        notifyPendingTimerFinished();
       }
     };
 
@@ -585,6 +647,11 @@ export default function Home() {
 
   // セリフ（メッセージ）の自動更新
   useEffect(() => {
+    if (timerFinishedNotice) {
+      setMessage(timerFinishedNotice);
+      return;
+    }
+
     const currentState = timingStates[selectedTiming];
     const tNormalMeds = medicines.filter(
       (med) => med.timings?.includes(selectedTiming) && !med.timings?.includes("as_needed")
@@ -633,7 +700,7 @@ export default function Home() {
         setMessage(`${timingLabel}に登録されている目薬はないよ。`);
       }
     }
-  }, [selectedTiming, timingStates, medicines, showGreeting, character]);
+  }, [selectedTiming, timingStates, medicines, showGreeting, character, timerFinishedNotice]);
 
   // キャラクター画像取得
   const getCharacterImage = () => {
@@ -679,6 +746,8 @@ export default function Home() {
       alert("点眼の前に目薬を振ってください！");
       return;
     }
+
+    void prepareTimerChimeAudio();
 
     addDebug("3. setIsProcessing(true)");
     setIsProcessing(true);
@@ -790,12 +859,10 @@ export default function Home() {
   // デバッグ用タイマースキップ
   const skipTimer = () => {
     localStorage.removeItem(`eye-drop-timer-endTime-${selectedTiming}`);
+    setTimerFinishedNotice(null);
     setTimingStates((prev) => ({
       ...prev,
-      [selectedTiming]: {
-        ...prev[selectedTiming],
-        timeLeft: 0,
-      }
+      [selectedTiming]: getAdvancedWaitingState(selectedTiming, prev[selectedTiming], medicines),
     }));
   };
 

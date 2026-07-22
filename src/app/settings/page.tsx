@@ -14,6 +14,13 @@ import {
   readNotificationSettings,
   saveNotificationSettings,
 } from "../../lib/localNotifications";
+import {
+  DEFAULT_TIMER_CHIME_SETTINGS,
+  playTimerChime,
+  readTimerChimeSettings,
+  saveTimerChimeSettings,
+  TimerChimeSettings,
+} from "../../lib/timerChime";
 
 type MedicineType = "water" | "suspension" | "gel" | "ointment";
 type StorageType = "room" | "cold";
@@ -112,6 +119,8 @@ export default function SettingsPage() {
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">(
     "unsupported"
   );
+  const [timerChimeSettings, setTimerChimeSettings] =
+    useState<TimerChimeSettings>(DEFAULT_TIMER_CHIME_SETTINGS);
 
   // アンマウント時にタイマーをクリーンアップ
   useEffect(() => {
@@ -255,6 +264,7 @@ export default function SettingsPage() {
 
     setNotificationSettings(readNotificationSettings());
     setNotificationPermission(isNotificationSupported() ? Notification.permission : "unsupported");
+    setTimerChimeSettings(readTimerChimeSettings());
   }, []);
 
   // アップデート情報ボタンクリック時の処理
@@ -322,6 +332,28 @@ export default function SettingsPage() {
 
     const permission = await Notification.requestPermission();
     setNotificationPermission(permission);
+  };
+
+  const handleTimerChimeToggle = (enabled: boolean) => {
+    const nextSettings = {
+      ...timerChimeSettings,
+      enabled,
+    };
+    setTimerChimeSettings(nextSettings);
+    saveTimerChimeSettings(nextSettings);
+  };
+
+  const handleTimerChimeVolumeChange = (volume: number) => {
+    const nextSettings = {
+      ...timerChimeSettings,
+      volume,
+    };
+    setTimerChimeSettings(nextSettings);
+    saveTimerChimeSettings(nextSettings);
+  };
+
+  const handleTimerChimeTest = () => {
+    void playTimerChime({ force: true });
   };
 
   // スナックバー表示処理
@@ -1056,8 +1088,53 @@ export default function SettingsPage() {
               )}
             </div>
 
+            <div className="rounded-2xl border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-955/20 p-4 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-slate-800 dark:text-white">5分タイマー終了音</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+                    アプリが開いている時、または復帰時に終了済みなら音で知らせます。
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center justify-between sm:justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={handleTimerChimeTest}
+                    className="px-4 py-3 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white text-xs font-black rounded-2xl transition-all cursor-pointer min-h-[44px]"
+                  >
+                    テスト再生
+                  </button>
+                  <label className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+                    <span>{timerChimeSettings.enabled ? "ON" : "OFF"}</span>
+                    <input
+                      type="checkbox"
+                      checked={timerChimeSettings.enabled}
+                      onChange={(e) => handleTimerChimeToggle(e.target.checked)}
+                      className="w-6 h-6 rounded border-gray-300 dark:border-gray-750 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <label className="block">
+                <div className="flex items-center justify-between gap-3 text-xs font-black text-slate-700 dark:text-slate-200">
+                  <span>音量</span>
+                  <span>{Math.round(timerChimeSettings.volume * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={Math.round(timerChimeSettings.volume * 100)}
+                  onChange={(e) => handleTimerChimeVolumeChange(Number(e.target.value) / 100)}
+                  className="mt-2 w-full accent-emerald-500 cursor-pointer"
+                />
+              </label>
+            </div>
+
             <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400 bg-amber-50 dark:bg-amber-955/20 border border-amber-100 dark:border-amber-900/40 rounded-2xl p-4">
-              この通知は、アプリが起動中またはバックグラウンドで動作している間に届きます。端末やブラウザの状態によって、通知が遅れたり届かないことがあります。
+              通知や終了音は、端末やブラウザの状態によって遅れたり届かないことがあります。アプリがバックグラウンドまたは終了している間に、必ず鳴るものではありません。
             </p>
           </div>
           )}
