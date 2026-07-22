@@ -1363,7 +1363,7 @@ export default function SettingsPage() {
                 </div>
                 <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
                   <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.1.1</p>
-                  <p className="pl-2 text-xs text-slate-500 mt-1">・設定画面の下にいつでも見られる「使い方ボタン」等を新設。</p>
+                  <p className="pl-2 text-xs text-slate-500 mt-1">・設定画面に、いつでも見られる「使い方ボタン」とアプリ情報エリアを新設。</p>
                 </div>
                 <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
                   <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.1.0 (2026年5月)</p>
