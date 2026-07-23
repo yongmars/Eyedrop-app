@@ -17,6 +17,8 @@ export const DEFAULT_TIMER_CHIME_SETTINGS: TimerChimeSettings = {
   volume: 0.5,
 };
 
+const MAX_CHIME_GAIN = 0.65;
+
 let audioContext: AudioContext | null = null;
 
 const hasWindow = () => typeof window !== "undefined";
@@ -97,7 +99,7 @@ export const playTimerChime = async (options: { force?: boolean } = {}) => {
     const startTime = context.currentTime + 0.02;
     const masterGain = context.createGain();
     masterGain.gain.setValueAtTime(0.0001, startTime);
-    masterGain.gain.exponentialRampToValueAtTime(0.32 * settings.volume, startTime + 0.03);
+    masterGain.gain.exponentialRampToValueAtTime(MAX_CHIME_GAIN * settings.volume, startTime + 0.03);
     masterGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.7);
     masterGain.connect(context.destination);
 
