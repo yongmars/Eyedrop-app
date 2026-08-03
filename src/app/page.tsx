@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import { playTimerChime, prepareTimerChimeAudio } from "../lib/timerChime";
+import { getMedicinePhotos } from "../lib/medicinePhotos";
 
 type MedicineType = "water" | "suspension" | "gel" | "ointment";
 type StorageType = "room" | "cold";
@@ -105,6 +106,8 @@ export default function Home() {
   const [medicines, setMedicines] = useState<Medicine[]>(initialMedicines);
   const [isMounted, setIsMounted] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [medicinePhotoUrls, setMedicinePhotoUrls] = useState<Record<number, string>>({});
+  const [expandedPhoto, setExpandedPhoto] = useState<{ name: string; url: string } | null>(null);
 
   const [selectedTiming, setSelectedTiming] = useState<TabTimingType>("morning");
   const [timingStates, setTimingStates] = useState<Record<TabTimingType, TimingState>>({
@@ -322,6 +325,46 @@ export default function Home() {
     isLoaded.current = true;
     setIsMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!isMounted) return;
+
+    let cancelled = false;
+    const createdUrls: string[] = [];
+
+    const loadPhotos = async () => {
+      try {
+        const records = await getMedicinePhotos(medicines.map((medicine) => medicine.id));
+        if (cancelled) return;
+
+        const nextUrls: Record<number, string> = {};
+        records.forEach((record, medicineId) => {
+          const url = URL.createObjectURL(record.blob);
+          createdUrls.push(url);
+          nextUrls[medicineId] = url;
+        });
+        setMedicinePhotoUrls(nextUrls);
+      } catch (error) {
+        console.error("Failed to load medicine photos", error);
+        if (!cancelled) setMedicinePhotoUrls({});
+      }
+    };
+
+    void loadPhotos();
+    return () => {
+      cancelled = true;
+      createdUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [isMounted, medicines]);
+
+  useEffect(() => {
+    if (!expandedPhoto) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpandedPhoto(null);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [expandedPhoto]);
 
   useEffect(() => {
     return () => {
@@ -1125,7 +1168,18 @@ export default function Home() {
                     </div>
 
                     {/* 縦並びの2行配置 */}
-                    <div className="mt-2 space-y-1.5">
+                    <div className="mt-2 flex items-start gap-3">
+                      {medicinePhotoUrls[med.id] && (
+                        <button
+                          type="button"
+                          onClick={() => setExpandedPhoto({ name: med.name, url: medicinePhotoUrls[med.id] })}
+                          className="w-16 h-16 flex-shrink-0 rounded-xl overflow-hidden border-2 border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-900 shadow-sm cursor-pointer touch-manipulation"
+                          aria-label={`${med.name}の写真を拡大表示`}
+                        >
+                          <img src={medicinePhotoUrls[med.id]} alt={`${med.name}の写真`} className="w-full h-full object-cover" />
+                        </button>
+                      )}
+                      <div className="space-y-1.5 min-w-0">
                       {/* 1行目：お薬の名前 */}
                       <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
                         {med.name}
@@ -1134,6 +1188,7 @@ export default function Home() {
                       <div className="text-2xl font-extrabold text-purple-600 dark:text-purple-400 flex items-center gap-2">
                         <span>💧</span>
                         <span>{getEyeTargetLabel(med)}</span>
+                      </div>
                       </div>
                     </div>
                   </div>
@@ -1251,7 +1306,18 @@ export default function Home() {
                     </div>
 
                     {/* 縦並びの2行配置 */}
-                    <div className="mt-2 space-y-1.5">
+                    <div className="mt-2 flex items-start gap-3">
+                      {medicinePhotoUrls[med.id] && (
+                        <button
+                          type="button"
+                          onClick={() => setExpandedPhoto({ name: med.name, url: medicinePhotoUrls[med.id] })}
+                          className={`w-16 h-16 flex-shrink-0 rounded-xl overflow-hidden border-2 bg-white dark:bg-slate-900 shadow-sm cursor-pointer touch-manipulation ${isPast ? "border-gray-300 dark:border-gray-700" : "border-blue-200 dark:border-blue-800"}`}
+                          aria-label={`${med.name}の写真を拡大表示`}
+                        >
+                          <img src={medicinePhotoUrls[med.id]} alt={`${med.name}の写真`} className="w-full h-full object-cover" />
+                        </button>
+                      )}
+                      <div className="space-y-1.5 min-w-0">
                       {/* 1行目：お薬の名前 */}
                       <h2 className={`text-2xl font-bold ${isPast ? "line-through text-gray-400" : "text-slate-800 dark:text-white"}`}>
                         {med.name}
@@ -1260,6 +1326,7 @@ export default function Home() {
                       <div className={`text-2xl font-extrabold flex items-center gap-2 ${isPast ? "text-gray-400" : "text-blue-600 dark:text-blue-400"}`}>
                         <span>💧</span>
                         <span>{getEyeTargetLabel(med)}</span>
+                      </div>
                       </div>
                     </div>
                   </div>
@@ -1325,6 +1392,38 @@ export default function Home() {
         {/* チラ見せ用の余白（最後の要素の後ろ） */}
         <div className="h-20"></div>
       </div>
+
+      {expandedPhoto && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${expandedPhoto.name}の写真`}
+          onClick={() => setExpandedPhoto(null)}
+        >
+          <div
+            className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-slate-800 p-4 shadow-2xl animate-scale-up"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 mb-3 px-1">
+              <h2 className="font-bold text-slate-800 dark:text-white truncate">{expandedPhoto.name}</h2>
+              <button
+                type="button"
+                onClick={() => setExpandedPhoto(null)}
+                className="w-10 h-10 flex-shrink-0 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold cursor-pointer touch-manipulation"
+                aria-label="写真を閉じる"
+              >
+                ✕
+              </button>
+            </div>
+            <img
+              src={expandedPhoto.url}
+              alt={`${expandedPhoto.name}の拡大写真`}
+              className="w-full max-h-[75vh] object-contain rounded-2xl bg-gray-50 dark:bg-slate-900"
+            />
+          </div>
+        </div>
+      )}
 
       {/* アプリの使い方モーダル（全体スクロール方式） */}
       {isHelpOpen && (

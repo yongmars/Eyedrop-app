@@ -21,6 +21,14 @@ import {
   saveTimerChimeSettings,
   TimerChimeSettings,
 } from "../../lib/timerChime";
+import {
+  clearMedicinePhotos,
+  compressMedicinePhoto,
+  deleteMedicinePhoto,
+  getMedicinePhoto,
+  MedicinePhotoRecord,
+  saveMedicinePhoto,
+} from "../../lib/medicinePhotos";
 
 type MedicineType = "water" | "suspension" | "gel" | "ointment";
 type StorageType = "room" | "cold";
@@ -42,6 +50,8 @@ interface SnackbarState {
   message: string;
   actionType: "delete" | "edit" | null;
   prevData: Medicine | null;
+  prevPhoto: MedicinePhotoRecord | null;
+  photoChanged: boolean;
 }
 
 interface CSVMedicine {
@@ -86,6 +96,18 @@ export default function SettingsPage() {
   const [newRequiresWiping, setNewRequiresWiping] = useState(false);
   const [newTimings, setNewTimings] = useState<TimingType[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const galleryPhotoInputRef = useRef<HTMLInputElement>(null);
+  const cameraPhotoInputRef = useRef<HTMLInputElement>(null);
+  const originalPhotoRef = useRef<MedicinePhotoRecord | null>(null);
+  const photoLoadTokenRef = useRef(0);
+  const photoPreviewUrlRef = useRef<string | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const [pendingPhotoBlob, setPendingPhotoBlob] = useState<Blob | null>(null);
+  const [photoRemovalPending, setPhotoRemovalPending] = useState(false);
+  const [isPhotoLoading, setIsPhotoLoading] = useState(false);
+  const [isPhotoProcessing, setIsPhotoProcessing] = useState(false);
+  const [isSavingMedicine, setIsSavingMedicine] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   // フォームのアコーディオン開閉状態
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -102,6 +124,8 @@ export default function SettingsPage() {
     message: "",
     actionType: null,
     prevData: null,
+    prevPhoto: null,
+    photoChanged: false,
   });
   const snackbarTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -127,6 +151,9 @@ export default function SettingsPage() {
     return () => {
       if (snackbarTimerRef.current) {
         clearTimeout(snackbarTimerRef.current);
+      }
+      if (photoPreviewUrlRef.current) {
+        URL.revokeObjectURL(photoPreviewUrlRef.current);
       }
     };
   }, []);
@@ -356,8 +383,49 @@ export default function SettingsPage() {
     void playTimerChime({ force: true });
   };
 
+  const replacePhotoPreview = (blob: Blob | null) => {
+    if (photoPreviewUrlRef.current) {
+      URL.revokeObjectURL(photoPreviewUrlRef.current);
+    }
+    const nextUrl = blob ? URL.createObjectURL(blob) : null;
+    photoPreviewUrlRef.current = nextUrl;
+    setPhotoPreviewUrl(nextUrl);
+  };
+
+  const handlePhotoFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setPhotoError(null);
+    setIsPhotoProcessing(true);
+    try {
+      const compressedBlob = await compressMedicinePhoto(file);
+      setPendingPhotoBlob(compressedBlob);
+      setPhotoRemovalPending(false);
+      replacePhotoPreview(compressedBlob);
+    } catch (error) {
+      setPhotoError(error instanceof Error ? error.message : "写真を処理できませんでした。");
+    } finally {
+      setIsPhotoProcessing(false);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setPendingPhotoBlob(null);
+    setPhotoRemovalPending(true);
+    setPhotoError(null);
+    replacePhotoPreview(null);
+  };
+
   // スナックバー表示処理
-  const showSnackbar = (message: string, actionType: "delete" | "edit", prevData: Medicine) => {
+  const showSnackbar = (
+    message: string,
+    actionType: "delete" | "edit",
+    prevData: Medicine,
+    prevPhoto: MedicinePhotoRecord | null = null,
+    photoChanged = false
+  ) => {
     if (snackbarTimerRef.current) {
       clearTimeout(snackbarTimerRef.current);
     }
@@ -367,6 +435,8 @@ export default function SettingsPage() {
       message,
       actionType,
       prevData,
+      prevPhoto,
+      photoChanged,
     });
 
     snackbarTimerRef.current = setTimeout(() => {
@@ -375,7 +445,7 @@ export default function SettingsPage() {
   };
 
   // 操作取り消し (Undo) 処理
-  const handleUndo = () => {
+  const handleUndo = async () => {
     if (!snackbar.prevData || !snackbar.actionType) return;
 
     let updated: Medicine[] = [];
@@ -394,6 +464,23 @@ export default function SettingsPage() {
       updated = sortMedicines(updated);
     }
 
+    if (snackbar.actionType === "delete" || snackbar.photoChanged) {
+      try {
+        if (snackbar.prevPhoto) {
+          await saveMedicinePhoto(
+            snackbar.prevPhoto.medicineId,
+            snackbar.prevPhoto.blob,
+            snackbar.prevPhoto.updatedAt
+          );
+        } else {
+          await deleteMedicinePhoto(snackbar.prevData.id);
+        }
+      } catch (error) {
+        console.error("Failed to restore medicine photo", error);
+        alert("写真を復元できませんでした。もう一度お試しください。");
+        return;
+      }
+    }
     setMedicines(updated);
     localStorage.setItem("my_medication_data", JSON.stringify(updated));
     notifyMedicineDataChanged();
@@ -407,11 +494,13 @@ export default function SettingsPage() {
       message: "",
       actionType: null,
       prevData: null,
+      prevPhoto: null,
+      photoChanged: false,
     });
   };
 
   // 編集開始処理
-  const handleEditClick = (med: Medicine) => {
+  const handleEditClick = async (med: Medicine) => {
     setIsFormOpen(true); // フォームアコーディオンを開く
     setEditingId(med.id);
     setNewName(med.name);
@@ -420,6 +509,28 @@ export default function SettingsPage() {
     setNewStorage(med.storage);
     setNewRequiresWiping(med.requiresWiping);
     setNewTimings(med.timings || []);
+    setPendingPhotoBlob(null);
+    setPhotoRemovalPending(false);
+    setPhotoError(null);
+    replacePhotoPreview(null);
+    const loadToken = ++photoLoadTokenRef.current;
+    setIsPhotoLoading(true);
+    try {
+      const photo = await getMedicinePhoto(med.id);
+      if (photoLoadTokenRef.current === loadToken) {
+        originalPhotoRef.current = photo;
+        replacePhotoPreview(photo?.blob ?? null);
+      }
+    } catch (error) {
+      if (photoLoadTokenRef.current === loadToken) {
+        originalPhotoRef.current = null;
+        setPhotoError(error instanceof Error ? error.message : "写真を読み込めませんでした。");
+      }
+    } finally {
+      if (photoLoadTokenRef.current === loadToken) {
+        setIsPhotoLoading(false);
+      }
+    }
     
     // 入力フォーム（目薬の名前）にフォーカスし、そこへスムーズにスクロール
     setTimeout(() => {
@@ -430,6 +541,7 @@ export default function SettingsPage() {
 
   // フォームクリア
   const resetForm = () => {
+    photoLoadTokenRef.current += 1;
     setNewName("");
     setEyeTarget("both");
     setNewType("water");
@@ -437,6 +549,14 @@ export default function SettingsPage() {
     setNewRequiresWiping(false);
     setNewTimings([]);
     setEditingId(null);
+    originalPhotoRef.current = null;
+    setPendingPhotoBlob(null);
+    setPhotoRemovalPending(false);
+    setIsPhotoLoading(false);
+    setIsPhotoProcessing(false);
+    setIsSavingMedicine(false);
+    setPhotoError(null);
+    replacePhotoPreview(null);
   };
 
   // 編集キャンセル
@@ -446,7 +566,7 @@ export default function SettingsPage() {
   };
 
   // 削除処理
-  const handleDeleteMedicine = (id: number, name: string) => {
+  const handleDeleteMedicine = async (id: number, name: string) => {
     if (!confirm(`本当に「${name}」を削除してもよろしいですか？`)) {
       return;
     }
@@ -454,13 +574,21 @@ export default function SettingsPage() {
     const medToDelete = medicines.find((med) => med.id === id);
     if (!medToDelete) return;
 
+    let photoToDelete: MedicinePhotoRecord | null = null;
+    try {
+      photoToDelete = await getMedicinePhoto(id);
+      await deleteMedicinePhoto(id);
+    } catch (error) {
+      console.error("Failed to delete medicine photo", error);
+    }
+
     const updated = medicines.filter((med) => med.id !== id);
     setMedicines(updated);
     localStorage.setItem("my_medication_data", JSON.stringify(updated));
     notifyMedicineDataChanged();
 
     // 操作取り消し用のスナックバーを表示
-    showSnackbar(`「${name}」を削除しました`, "delete", medToDelete);
+    showSnackbar(`「${name}」を削除しました`, "delete", medToDelete, photoToDelete, true);
 
     // 現在の進捗インデックスの安全調整
     const savedIndex = localStorage.getItem("eye-drop-currentIndex");
@@ -512,8 +640,9 @@ export default function SettingsPage() {
   };
 
   // 目薬の登録・更新処理
-  const handleAddMedicine = (e: React.FormEvent) => {
+  const handleAddMedicine = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingMedicine) return;
     if (!newName.trim()) {
       alert("目薬の名前を入力してください！");
       return;
@@ -534,9 +663,33 @@ export default function SettingsPage() {
 
     const instructionText = `${eyeLabel} ${actionLabel}`;
 
+    if (isPhotoLoading || isPhotoProcessing) {
+      setPhotoError("写真の処理が終わるまでお待ちください。");
+      return;
+    }
+
+    setPhotoError(null);
+    setIsSavingMedicine(true);
+
+    try {
     if (editingId !== null) {
       const medToEdit = medicines.find((med) => med.id === editingId);
       if (!medToEdit) return;
+      const photoChanged = pendingPhotoBlob !== null || photoRemovalPending;
+      const previousPhoto = originalPhotoRef.current;
+
+      if (photoChanged) {
+        try {
+          if (pendingPhotoBlob) {
+            await saveMedicinePhoto(editingId, pendingPhotoBlob);
+          } else {
+            await deleteMedicinePhoto(editingId);
+          }
+        } catch (error) {
+          setPhotoError(error instanceof Error ? error.message : "写真を保存できませんでした。");
+          return;
+        }
+      }
 
       // 編集（上書き）処理
       const updatedMedicines = medicines.map((med) => {
@@ -556,20 +709,38 @@ export default function SettingsPage() {
       });
 
       const sorted = sortMedicines(updatedMedicines);
+      try {
+        localStorage.setItem("my_medication_data", JSON.stringify(sorted));
+      } catch (error) {
+        if (photoChanged) {
+          try {
+            if (previousPhoto) {
+              await saveMedicinePhoto(previousPhoto.medicineId, previousPhoto.blob, previousPhoto.updatedAt);
+            } else {
+              await deleteMedicinePhoto(editingId);
+            }
+          } catch (rollbackError) {
+            console.error("Failed to roll back medicine photo", rollbackError);
+          }
+        }
+        setPhotoError("登録内容を保存できませんでした。端末の空き容量をご確認ください。");
+        console.error("Failed to save medicine", error);
+        return;
+      }
       setMedicines(sorted);
-      localStorage.setItem("my_medication_data", JSON.stringify(sorted));
       notifyMedicineDataChanged();
 
       // 操作取り消し用のスナックバーを表示
-      showSnackbar(`「${newName.trim()}」の変更を保存しました`, "edit", medToEdit);
+      showSnackbar(`「${newName.trim()}」の変更を保存しました`, "edit", medToEdit, previousPhoto, photoChanged);
 
       // 編集完了後はフォームをリセットし、フォームアコーディオンを閉じる
       resetForm();
       setIsFormOpen(false);
     } else {
       // 新規登録処理
+      const newMedicineId = new Date().getTime();
       const newMed: Medicine = {
-        id: Date.now(),
+        id: newMedicineId,
         name: newName.trim(),
         instruction: instructionText,
         type: newType,
@@ -582,9 +753,31 @@ export default function SettingsPage() {
       // 追加してソート
       const updatedMedicines = sortMedicines([...medicines, newMed]);
 
+      if (pendingPhotoBlob) {
+        try {
+          await saveMedicinePhoto(newMedicineId, pendingPhotoBlob);
+        } catch (error) {
+          setPhotoError(error instanceof Error ? error.message : "写真を保存できませんでした。");
+          return;
+        }
+      }
+
       // ステートとlocalStorageに保存
+      try {
+        localStorage.setItem("my_medication_data", JSON.stringify(updatedMedicines));
+      } catch (error) {
+        if (pendingPhotoBlob) {
+          try {
+            await deleteMedicinePhoto(newMedicineId);
+          } catch (rollbackError) {
+            console.error("Failed to roll back medicine photo", rollbackError);
+          }
+        }
+        setPhotoError("登録内容を保存できませんでした。端末の空き容量をご確認ください。");
+        console.error("Failed to save medicine", error);
+        return;
+      }
       setMedicines(updatedMedicines);
-      localStorage.setItem("my_medication_data", JSON.stringify(updatedMedicines));
       notifyMedicineDataChanged();
 
       // フォームリセットとクローズ
@@ -594,15 +787,24 @@ export default function SettingsPage() {
       // 新規登録時はホームに戻る
       router.push("/");
     }
+    } finally {
+      setIsSavingMedicine(false);
+    }
   };
 
   // アプリの全データを初期状態に戻す処理
-  const handleResetAllData = () => {
+  const handleResetAllData = async () => {
     if (!confirm("登録されているすべての目薬データが消去されます。本当に初期化してもよろしいですか？")) {
       return;
     }
     if (!confirm("本当に元に戻せませんが、よろしいですか？")) {
       return;
+    }
+
+    try {
+      await clearMedicinePhotos();
+    } catch (error) {
+      console.error("Failed to clear medicine photos", error);
     }
 
     // ① LocalStorage に空配列を設定して初期化
@@ -826,6 +1028,98 @@ export default function SettingsPage() {
             )}
           </div>
 
+          {/* 薬の写真（端末内だけに保存） */}
+          <div>
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+              薬の写真（任意・1枚）
+            </label>
+            <input
+              ref={galleryPhotoInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoFileChange}
+              disabled={isSavingMedicine}
+              className="hidden"
+            />
+            <input
+              ref={cameraPhotoInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handlePhotoFileChange}
+              disabled={isSavingMedicine}
+              className="hidden"
+            />
+
+            {isPhotoLoading ? (
+              <div className="min-h-28 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-slate-900 flex items-center justify-center text-sm font-bold text-slate-500">
+                写真を読み込んでいます…
+              </div>
+            ) : photoPreviewUrl ? (
+              <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-slate-900 p-4">
+                <img
+                  src={photoPreviewUrl}
+                  alt="登録する薬の写真"
+                  className="w-full max-h-64 object-contain rounded-xl bg-white dark:bg-slate-800"
+                />
+                <div className="grid grid-cols-2 gap-3 mt-4">
+                  <button
+                    type="button"
+                    onClick={() => cameraPhotoInputRef.current?.click()}
+                    disabled={isPhotoProcessing || isSavingMedicine}
+                    className="min-h-[44px] rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-955/20 dark:border-emerald-900/40 dark:text-emerald-400 text-sm font-bold disabled:opacity-50 cursor-pointer"
+                  >
+                    📷 カメラで撮り直す
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => galleryPhotoInputRef.current?.click()}
+                    disabled={isPhotoProcessing || isSavingMedicine}
+                    className="min-h-[44px] rounded-xl border border-blue-200 bg-blue-50 text-blue-600 dark:bg-blue-955/20 dark:border-blue-900/40 dark:text-blue-400 text-sm font-bold disabled:opacity-50 cursor-pointer"
+                  >
+                    🖼️ 端末から変更
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRemovePhoto}
+                    disabled={isPhotoProcessing || isSavingMedicine}
+                    className="col-span-2 min-h-[44px] rounded-xl border border-red-200 bg-red-50 text-red-600 dark:bg-red-955/20 dark:border-red-900/40 dark:text-red-400 text-sm font-bold disabled:opacity-50 cursor-pointer"
+                  >
+                    写真を削除
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => cameraPhotoInputRef.current?.click()}
+                  disabled={isPhotoProcessing || isSavingMedicine}
+                  className="min-h-[56px] rounded-2xl border-2 border-dashed border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-955/10 text-emerald-700 dark:text-emerald-400 font-bold disabled:opacity-50 cursor-pointer"
+                >
+                  {isPhotoProcessing ? "処理中…" : "📷 カメラで撮影"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => galleryPhotoInputRef.current?.click()}
+                  disabled={isPhotoProcessing || isSavingMedicine}
+                  className="min-h-[56px] rounded-2xl border-2 border-dashed border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-955/10 text-blue-600 dark:text-blue-400 font-bold disabled:opacity-50 cursor-pointer"
+                >
+                  {isPhotoProcessing ? "処理中…" : "🖼️ 端末から選択"}
+                </button>
+              </div>
+            )}
+
+            {photoError && (
+              <p role="alert" className="mt-2 text-sm font-bold text-red-600 dark:text-red-400">
+                {photoError}
+              </p>
+            )}
+            <p className="mt-3 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+              写真は外部へ送信せず、この端末内だけに保存します。ブラウザデータやPWAの削除、機種変更などで消える場合があります。
+            </p>
+          </div>
+
           {/* 対象の目 */}
           <div>
             <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
@@ -966,10 +1260,11 @@ export default function SettingsPage() {
               <div className="flex gap-3">
                 <button
                   type="submit"
+                  disabled={isSavingMedicine}
                   className="flex-grow bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-base py-4 rounded-2xl shadow-md shadow-blue-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer min-h-[48px]"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                  更新内容を保存する
+                  {isSavingMedicine ? "保存中…" : "更新内容を保存する"}
                 </button>
                 <button
                   type="button"
@@ -982,10 +1277,11 @@ export default function SettingsPage() {
             ) : (
               <button
                 type="submit"
+                disabled={isSavingMedicine}
                 className="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold text-base py-4 rounded-2xl shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer min-h-[48px]"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-                目薬をリストに追加する
+                {isSavingMedicine ? "保存中…" : "目薬をリストに追加する"}
               </button>
             )}
           </div>
