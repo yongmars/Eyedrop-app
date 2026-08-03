@@ -71,7 +71,7 @@ const typeOrder: Record<MedicineType, number> = {
 };
 
 const initialMedicines: Medicine[] = [];
-const UPDATE_VERSION = "v1.3.1";
+const UPDATE_VERSION = "v1.3.2";
 
 const sortMedicines = (list: Medicine[]): Medicine[] => {
   return [...list].sort((a, b) => {
@@ -1451,7 +1451,7 @@ export default function SettingsPage() {
               </span>
             )}
           </span>
-          <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ver. 1.3.1</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ver. 1.3.2</span>
         </button>
 
         <button
@@ -1483,6 +1483,12 @@ export default function SettingsPage() {
           <p>・本アプリは点眼の記録をサポートする補助ツールであり、<br />&nbsp;&nbsp;医療機器ではありません。</p>
           <p>・アプリ内の情報よりも、必ず医師の指示やお薬の添付文書を優先してください。</p>
           <p>・本アプリの利用によって生じたトラブルについて、<br />&nbsp;&nbsp;開発者は一切の責任を負いかねます。</p>
+          <div className="pt-2">
+            <p className="font-bold text-slate-500 dark:text-slate-400">・点眼薬の写真について</p>
+            <p>登録した点眼薬の写真は、使用中の点眼薬を確認するための補助記録です。</p>
+            <p>処方内容を証明するものではなく、お薬手帳や処方箋の代わりにはなりません。</p>
+            <p>医療機関や薬局では、必要に応じてお薬手帳や処方箋などもあわせてご確認ください。</p>
+          </div>
         </div>
 
         {/* アプリ初期化ボタン (免責事項の下に移動) */}
@@ -1605,6 +1611,18 @@ export default function SettingsPage() {
             {/* モーダルコンテンツ */}
             <div className="p-6 overflow-y-auto max-h-[60vh] custom-scrollbar bg-white dark:bg-slate-800">
               <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-left space-y-4">
+                <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
+                  <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.3.2（2026年8月3日）</p>
+                  <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    ・写真登録機能を追加しました。<br />
+                    &nbsp;&nbsp;&nbsp;登録した点眼薬に、写真を1枚保存できるようになりました。<br />
+                    ・カメラで撮影するか、端末内の画像を選んで登録できます。<br />
+                    ・登録した写真はホーム画面の点眼カードに表示され、タップすると拡大して確認できます。<br />
+                    ・点眼時の目薬確認や、災害時などに使用中の点眼薬を確認する記録として機能を追加しました。<br />
+                    ・点眼薬の候補表示を改善しました<br />
+                    &nbsp;&nbsp;&nbsp;候補に表示される点眼薬の品名を追加しました。
+                  </p>
+                </div>
                 <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
                   <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.3.1</p>
                   <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
