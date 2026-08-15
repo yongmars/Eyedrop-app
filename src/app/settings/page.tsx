@@ -72,7 +72,7 @@ const typeOrder: Record<MedicineType, number> = {
 };
 
 const initialMedicines: Medicine[] = [];
-const UPDATE_VERSION = "v1.3.2";
+const UPDATE_VERSION = "v1.3.3";
 
 const sortMedicines = (list: Medicine[]): Medicine[] => {
   return [...list].sort((a, b) => {
@@ -1464,7 +1464,7 @@ export default function SettingsPage() {
               </span>
             )}
           </span>
-          <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ver. 1.3.2</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ver. 1.3.3</span>
         </button>
 
         <button
@@ -1625,13 +1625,20 @@ export default function SettingsPage() {
             <div className="p-6 overflow-y-auto max-h-[60vh] custom-scrollbar bg-white dark:bg-slate-800">
               <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-left space-y-4">
                 <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
+                  <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.3.3（2026年8月16日）</p>
+                  <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    ・「使用中の目薬一覧」を追加しました。<br />
+                    ・登録している点眼薬の写真や薬名、対象眼、点眼時間帯などを一覧で確認できるようになりました。<br />
+                    ・点眼時の目薬確認や、災害時・受診時・調剤時などに、使用中の点眼薬を確認しやすくなりました。
+                  </p>
+                </div>
+                <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
                   <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.3.2（2026年8月3日）</p>
                   <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
                     ・写真登録機能を追加しました。<br />
                     &nbsp;&nbsp;&nbsp;登録した点眼薬に、写真を1枚保存できるようになりました。<br />
                     ・カメラで撮影するか、端末内の画像を選んで登録できます。<br />
                     ・登録した写真はホーム画面の点眼カードに表示され、タップすると拡大して確認できます。<br />
-                    ・点眼時の目薬確認や、災害時などに使用中の点眼薬を確認する記録として機能を追加しました。<br />
                     ・点眼薬の候補表示を改善しました<br />
                     &nbsp;&nbsp;&nbsp;候補に表示される点眼薬の品名を追加しました。
                   </p>
