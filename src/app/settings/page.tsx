@@ -43,6 +43,7 @@ interface Medicine {
   requiresWiping: boolean;
   eyeTarget?: "both" | "right" | "left";
   timings?: TimingType[];
+  updatedAt?: string;
 }
 
 interface SnackbarState {
@@ -703,6 +704,7 @@ export default function SettingsPage() {
             requiresWiping: newRequiresWiping,
             eyeTarget: eyeTarget,
             timings: newTimings,
+            updatedAt: new Date().toISOString(),
           };
         }
         return med;
@@ -748,6 +750,7 @@ export default function SettingsPage() {
         requiresWiping: newRequiresWiping,
         eyeTarget: eyeTarget,
         timings: newTimings,
+        updatedAt: new Date().toISOString(),
       };
 
       // 追加してソート
@@ -871,6 +874,16 @@ export default function SettingsPage() {
 
       {/* 設定画面コンテンツ */}
       <div className="px-6 py-6 max-w-md mx-auto w-full space-y-6 pb-20 animate-slide-in-fast">
+        <button
+          type="button"
+          onClick={() => router.push("/medicine-list")}
+          className="w-full bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded-3xl p-5 shadow-md hover:shadow-lg active:scale-[0.99] transition-all cursor-pointer touch-manipulation text-left"
+        >
+          <span className="block text-lg font-extrabold">使用中の目薬一覧</span>
+          <span className="block mt-1 text-sm text-sky-50 leading-relaxed">
+            受診・調剤時や、もしものときの確認に使えます
+          </span>
+        </button>
         
         {/* 1. 登録済みの目薬一覧（最上部に配置） */}
         {isMounted && (
