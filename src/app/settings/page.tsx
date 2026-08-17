@@ -124,6 +124,7 @@ export default function SettingsPage() {
   // フォームのアコーディオン開閉状態
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isNotificationSettingsOpen, setIsNotificationSettingsOpen] = useState(false);
+  const [isPastMedicinesOpen, setIsPastMedicinesOpen] = useState(false);
 
   // オートコンプリート用のステート
   const [csvMedicines, setCsvMedicines] = useState<CSVMedicine[]>([]);
@@ -1086,97 +1087,6 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* 点眼を終了した薬。使用中の点眼処理とは分離して保存する。 */}
-        {isMounted && (
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
-            <h2 className="text-lg font-bold text-slate-800 dark:text-white">
-              過去の点眼薬 ({archivedMedicines.length})
-            </h2>
-            <p className="mt-2 mb-4 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-              点眼を終了した薬です。ホーム・今日の点眼・通知には表示されません。
-            </p>
-
-            {archivedMedicines.length === 0 ? (
-              <div className="text-center py-7 text-sm text-slate-400 dark:text-slate-500 bg-gray-50 dark:bg-slate-900 rounded-3xl border border-gray-150 dark:border-gray-750">
-                過去の点眼薬はありません。
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {archivedMedicines.map((med) => {
-                  const isDetailOpen = pastDetailId === med.id;
-                  return (
-                    <div key={med.id} className="rounded-3xl border border-slate-200 dark:border-slate-700 p-5 bg-slate-50 dark:bg-slate-900/50">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="text-base font-extrabold text-slate-800 dark:text-white">{med.name}</h3>
-                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                            点眼終了日：{med.endedAt ? new Date(med.endedAt).toLocaleDateString("ja-JP") : "記録なし"}
-                          </p>
-                        </div>
-                        <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">
-                          点眼終了
-                        </span>
-                      </div>
-
-                      {isDetailOpen && (
-                        <div className="mt-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 space-y-3">
-                          <div className="flex gap-4 items-start">
-                            <div className="w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-900 flex items-center justify-center">
-                              {isPastPhotoLoading ? (
-                                <span className="text-xs text-slate-400">読込中…</span>
-                              ) : pastPhotoUrl ? (
-                                <img src={pastPhotoUrl} alt={`${med.name}の写真`} className="w-full h-full object-cover" />
-                              ) : (
-                                <span className="text-xs text-slate-400">写真未登録</span>
-                              )}
-                            </div>
-                            <dl className="min-w-0 grid grid-cols-[5.5rem_1fr] gap-y-2 text-xs leading-relaxed">
-                              <dt className="font-bold text-slate-500">対象</dt>
-                              <dd className="font-bold text-slate-800 dark:text-slate-100">{getEyeTargetLabel(med)}</dd>
-                              <dt className="font-bold text-slate-500">性状</dt>
-                              <dd className="font-bold text-slate-800 dark:text-slate-100">{getTypeLabel(med.type)}</dd>
-                              <dt className="font-bold text-slate-500">保管</dt>
-                              <dd className="font-bold text-slate-800 dark:text-slate-100">{med.storage === "cold" ? "冷所" : "室温"}</dd>
-                            </dl>
-                          </div>
-                          <div className="text-xs text-slate-600 dark:text-slate-300 space-y-1">
-                            <p><strong>時間帯：</strong>{med.timings?.length ? med.timings.map((timing) => getTimingLabel(timing)?.label).filter(Boolean).join("・") : "未設定"}</p>
-                            <p><strong>点眼後：</strong>{med.requiresWiping ? "拭き取り・洗顔が必要" : "特別な設定なし"}</p>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleEditClick(med, true)}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl min-h-[40px]"
-                        >
-                          再開する
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handlePastDetails(med)}
-                          className="bg-white hover:bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 min-h-[40px]"
-                        >
-                          {isDetailOpen ? "詳細を閉じる" : "詳細を見る"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleDeleteMedicine(med.id, med.name)}
-                          className="bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-950/20 dark:text-red-400 font-bold text-xs px-4 py-2.5 rounded-xl border border-red-200 dark:border-red-900/30 min-h-[40px]"
-                        >
-                          完全に削除
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* 2. 新しく目薬を登録する（アコーディオン形式） */}
         <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
           <button
@@ -1658,6 +1568,115 @@ export default function SettingsPage() {
           </div>
           )}
         </div>
+
+        {/* 4. 過去の点眼薬 */}
+        {isMounted && (
+          <div className="bg-slate-100/70 dark:bg-slate-800/70 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => {
+                if (isPastMedicinesOpen) closePastDetails();
+                setIsPastMedicinesOpen(!isPastMedicinesOpen);
+              }}
+              className="w-full px-6 py-5 flex justify-between items-center gap-3 text-left text-slate-800 dark:text-white cursor-pointer hover:bg-slate-200/50 dark:hover:bg-slate-700/30 transition-colors"
+              aria-expanded={isPastMedicinesOpen}
+              aria-controls="past-medicines-list"
+            >
+              <span>
+                <span className="block text-base font-black">過去の点眼薬 ({archivedMedicines.length})</span>
+                <span className="block mt-1 text-xs font-normal leading-relaxed text-slate-500 dark:text-slate-400">
+                  点眼を終了した薬です。ホーム・今日の点眼・通知には表示されません。
+                </span>
+              </span>
+              <span className="shrink-0 text-sm font-bold text-slate-400">
+                {isPastMedicinesOpen ? "▲ 閉じる" : "▼ 開く"}
+              </span>
+            </button>
+
+            {isPastMedicinesOpen && (
+              <div id="past-medicines-list" className="border-t border-slate-200 dark:border-slate-700 px-4 pb-4 pt-4">
+                {archivedMedicines.length === 0 ? (
+                  <div className="text-center py-7 text-sm text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+                    過去の点眼薬はありません。
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {archivedMedicines.map((med) => {
+                      const isDetailOpen = pastDetailId === med.id;
+                      return (
+                        <div key={med.id} className="rounded-2xl border border-slate-300 dark:border-slate-600 p-4 bg-white dark:bg-slate-800">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <h3 className="text-base font-extrabold text-slate-800 dark:text-white">{med.name}</h3>
+                              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                点眼終了日：{med.endedAt ? new Date(med.endedAt).toLocaleDateString("ja-JP") : "記録なし"}
+                              </p>
+                            </div>
+                            <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                              点眼終了
+                            </span>
+                          </div>
+
+                          {isDetailOpen && (
+                            <div className="mt-4 rounded-2xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+                              <div className="flex gap-4 items-start">
+                                <div className="w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-white dark:bg-slate-800 flex items-center justify-center">
+                                  {isPastPhotoLoading ? (
+                                    <span className="text-xs text-slate-400">読込中…</span>
+                                  ) : pastPhotoUrl ? (
+                                    <img src={pastPhotoUrl} alt={`${med.name}の写真`} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <span className="text-xs text-slate-400">写真未登録</span>
+                                  )}
+                                </div>
+                                <dl className="min-w-0 grid grid-cols-[5.5rem_1fr] gap-y-2 text-xs leading-relaxed">
+                                  <dt className="font-bold text-slate-500">対象</dt>
+                                  <dd className="font-bold text-slate-800 dark:text-slate-100">{getEyeTargetLabel(med)}</dd>
+                                  <dt className="font-bold text-slate-500">性状</dt>
+                                  <dd className="font-bold text-slate-800 dark:text-slate-100">{getTypeLabel(med.type)}</dd>
+                                  <dt className="font-bold text-slate-500">保管</dt>
+                                  <dd className="font-bold text-slate-800 dark:text-slate-100">{med.storage === "cold" ? "冷所" : "室温"}</dd>
+                                </dl>
+                              </div>
+                              <div className="text-xs text-slate-600 dark:text-slate-300 space-y-1">
+                                <p><strong>時間帯：</strong>{med.timings?.length ? med.timings.map((timing) => getTimingLabel(timing)?.label).filter(Boolean).join("・") : "未設定"}</p>
+                                <p><strong>点眼後：</strong>{med.requiresWiping ? "拭き取り・洗顔が必要" : "特別な設定なし"}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleEditClick(med, true)}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl min-h-[40px]"
+                            >
+                              再開する
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handlePastDetails(med)}
+                              className="bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 font-bold text-xs px-4 py-2.5 rounded-xl min-h-[40px]"
+                            >
+                              {isDetailOpen ? "詳細を閉じる" : "詳細を見る"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleDeleteMedicine(med.id, med.name)}
+                              className="bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-950/20 dark:text-red-400 font-bold text-xs px-4 py-2.5 rounded-xl border border-red-200 dark:border-red-900/30 min-h-[40px]"
+                            >
+                              完全に削除
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
       {/* アプリ情報エリア（フッター） */}
       <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800 space-y-4">
