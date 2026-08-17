@@ -16,11 +16,12 @@ import {
   readNotificationSettings,
   ScheduledNotification,
 } from "../lib/localNotifications";
+import { isMedicineActive, MedicineStatusFields } from "../lib/medicineStatus";
 
 const MAX_TIMEOUT_MS = 2_147_000_000;
 const MEDICINE_STORAGE_KEY = "my_medication_data";
 
-interface StoredMedicine {
+interface StoredMedicine extends MedicineStatusFields {
   timings?: string[];
 }
 
@@ -122,7 +123,9 @@ export default function LocalNotificationScheduler() {
 
     const hasMedicineForTiming = (timing: NotificationTiming) => {
       return readStoredMedicines().some((medicine) => {
-        return medicine.timings?.includes(timing) && !medicine.timings?.includes("as_needed");
+        return isMedicineActive(medicine)
+          && medicine.timings?.includes(timing)
+          && !medicine.timings?.includes("as_needed");
       });
     };
 

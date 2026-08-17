@@ -4,12 +4,13 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getMedicinePhotos } from "../../lib/medicinePhotos";
+import { getActiveMedicines, MedicineStatusFields } from "../../lib/medicineStatus";
 
 type MedicineType = "water" | "suspension" | "gel" | "ointment";
 type StorageType = "room" | "cold";
 type TimingType = "morning" | "lunch" | "dinner" | "bedtime" | "as_needed";
 
-interface Medicine {
+interface Medicine extends MedicineStatusFields {
   id: number;
   name: string;
   instruction: string;
@@ -78,7 +79,7 @@ export default function MedicineListPage() {
     if (saved) {
       try {
         const parsed: unknown = JSON.parse(saved);
-        if (Array.isArray(parsed)) loadedMedicines = parsed as Medicine[];
+        if (Array.isArray(parsed)) loadedMedicines = getActiveMedicines(parsed as Medicine[]);
       } catch (error) {
         console.error("Failed to parse medicines", error);
       }

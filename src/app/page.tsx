@@ -4,12 +4,13 @@ import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import { playTimerChime, prepareTimerChimeAudio } from "../lib/timerChime";
 import { getMedicinePhotos } from "../lib/medicinePhotos";
+import { getActiveMedicines, MedicineStatusFields } from "../lib/medicineStatus";
 
 type MedicineType = "water" | "suspension" | "gel" | "ointment";
 type StorageType = "room" | "cold";
 type TimingType = "morning" | "lunch" | "dinner" | "bedtime" | "as_needed";
 
-interface Medicine {
+interface Medicine extends MedicineStatusFields {
   id: number;
   name: string;
   instruction: string;
@@ -238,7 +239,8 @@ export default function Home() {
     let currentMeds = initialMedicines;
     if (savedMed) {
       try {
-        currentMeds = JSON.parse(savedMed);
+        const parsed: unknown = JSON.parse(savedMed);
+        currentMeds = Array.isArray(parsed) ? getActiveMedicines(parsed as Medicine[]) : initialMedicines;
         setMedicines(currentMeds);
       } catch (e) {
         console.error("Failed to parse medicines", e);
@@ -452,8 +454,6 @@ export default function Home() {
   useEffect(() => {
     // ロード完了前、またはマウント前は上書きを防ぐためスキップ
     if (!isMounted || !isLoaded.current) return;
-
-    localStorage.setItem("my_medication_data", JSON.stringify(medicines));
 
     // お薬データの変更に合わせて timingStates の整合性を検証・補正
     setTimingStates((prev) => {
