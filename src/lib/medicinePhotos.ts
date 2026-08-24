@@ -98,6 +98,9 @@ export const getMedicinePhotos = async (medicineIds: number[]): Promise<Map<numb
   );
 };
 
+export const getAllMedicinePhotos = async (): Promise<MedicinePhotoRecord[]> =>
+  runRequest<MedicinePhotoRecord[]>("readonly", (store) => store.getAll());
+
 export const saveMedicinePhoto = async (
   medicineId: number,
   blob: Blob,
@@ -114,6 +117,30 @@ export const deleteMedicinePhoto = async (medicineId: number): Promise<void> => 
 
 export const clearMedicinePhotos = async (): Promise<void> => {
   await runRequest<undefined>("readwrite", (store) => store.clear());
+};
+
+export const replaceMedicinePhotos = async (records: MedicinePhotoRecord[]): Promise<void> => {
+  const database = await openDatabase();
+
+  await new Promise<void>((resolve, reject) => {
+    const transaction = database.transaction(STORE_NAME, "readwrite");
+    const store = transaction.objectStore(STORE_NAME);
+    store.clear();
+    records.forEach((record) => store.put(record));
+
+    transaction.oncomplete = () => {
+      database.close();
+      resolve();
+    };
+    transaction.onerror = () => {
+      database.close();
+      reject(new MedicinePhotoError("写真データの一括保存に失敗しました。", { cause: transaction.error }));
+    };
+    transaction.onabort = () => {
+      database.close();
+      reject(new MedicinePhotoError("写真データの一括保存が中断されました。", { cause: transaction.error }));
+    };
+  });
 };
 
 const loadImage = (file: File): Promise<HTMLImageElement> => {

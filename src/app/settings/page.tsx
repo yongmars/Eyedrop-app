@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { ChangeEvent, useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -34,6 +34,15 @@ import {
   getArchivedMedicines,
   MedicineStatusFields,
 } from "../../lib/medicineStatus";
+import { APP_VERSION } from "../../lib/appVersion";
+import {
+  CreatedEyeDropBackup,
+  createEyeDropBackup,
+  EyeDropBackupError,
+  PreparedEyeDropRestore,
+  prepareEyeDropRestore,
+  restoreEyeDropBackup,
+} from "../../lib/eyeDropBackup";
 
 type MedicineType = "water" | "suspension" | "gel" | "ointment";
 type StorageType = "room" | "cold";
@@ -77,7 +86,8 @@ const typeOrder: Record<MedicineType, number> = {
 };
 
 const initialMedicines: Medicine[] = [];
-const UPDATE_VERSION = "v1.3.4";
+const UPDATE_VERSION = `v${APP_VERSION}`;
+const RESTORE_SUCCESS_SESSION_KEY = "eye-drop-restore-success";
 
 const sortMedicines = (list: Medicine[]): Medicine[] => {
   return [...list].sort((a, b) => {
@@ -160,6 +170,14 @@ export default function SettingsPage() {
   );
   const [timerChimeSettings, setTimerChimeSettings] =
     useState<TimerChimeSettings>(DEFAULT_TIMER_CHIME_SETTINGS);
+  const [createdBackup, setCreatedBackup] = useState<CreatedEyeDropBackup | null>(null);
+  const [preparedRestore, setPreparedRestore] = useState<PreparedEyeDropRestore | null>(null);
+  const [backupMessage, setBackupMessage] = useState<string | null>(null);
+  const [backupCreating, setBackupCreating] = useState(false);
+  const [backupSaving, setBackupSaving] = useState(false);
+  const [restoreValidating, setRestoreValidating] = useState(false);
+  const [restoreApplying, setRestoreApplying] = useState(false);
+  const backupInputRef = useRef<HTMLInputElement>(null);
 
   // アンマウント時にタイマーをクリーンアップ
   useEffect(() => {
@@ -310,6 +328,10 @@ export default function SettingsPage() {
     setNotificationSettings(readNotificationSettings());
     setNotificationPermission(isNotificationSupported() ? Notification.permission : "unsupported");
     setTimerChimeSettings(readTimerChimeSettings());
+    if (sessionStorage.getItem(RESTORE_SUCCESS_SESSION_KEY) === "true") {
+      sessionStorage.removeItem(RESTORE_SUCCESS_SESSION_KEY);
+      setBackupMessage("バックアップからデータを復元しました。通知を使う場合は、この端末の通知許可をご確認ください。");
+    }
   }, []);
 
   // アップデート情報ボタンクリック時の処理
@@ -897,6 +919,87 @@ export default function SettingsPage() {
     }
     } finally {
       setIsSavingMedicine(false);
+    }
+  };
+
+  const buildBackup = async () => {
+    setBackupCreating(true);
+    setCreatedBackup(null);
+    setBackupMessage(null);
+    try {
+      const backup = await createEyeDropBackup();
+      setCreatedBackup(backup);
+      setBackupMessage(`バックアップを作成しました（点眼薬${backup.medicineCount}件・写真${backup.imageCount}枚）。続けて「保存・共有」を押してください。`);
+    } catch (error) {
+      setBackupMessage(error instanceof Error ? error.message : "バックアップを作成できませんでした。");
+    } finally {
+      setBackupCreating(false);
+    }
+  };
+
+  const downloadBackup = (backup: CreatedEyeDropBackup) => {
+    const url = URL.createObjectURL(backup.blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = backup.fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const saveOrShareBackup = async () => {
+    if (!createdBackup) return;
+    setBackupSaving(true);
+    try {
+      const file = new File([createdBackup.blob], createdBackup.fileName, { type: "application/zip" });
+      if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+        await navigator.share({ files: [file], title: "まいにち点眼 バックアップ" });
+        setBackupMessage("バックアップファイルを共有先へ渡しました。保存先で保管されたことを確認してください。");
+      } else {
+        downloadBackup(createdBackup);
+        setBackupMessage("バックアップファイルの保存を開始しました。");
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setBackupMessage("保存・共有をキャンセルしました。この画面からもう一度保存できます。");
+      } else {
+        downloadBackup(createdBackup);
+        setBackupMessage("共有機能を利用できなかったため、通常のファイル保存を開始しました。");
+      }
+    } finally {
+      setBackupSaving(false);
+    }
+  };
+
+  const selectRestoreFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setRestoreValidating(true);
+    setPreparedRestore(null);
+    setBackupMessage(null);
+    try {
+      const prepared = await prepareEyeDropRestore(file);
+      setPreparedRestore(prepared);
+    } catch (error) {
+      setBackupMessage(error instanceof EyeDropBackupError || error instanceof Error ? error.message : "バックアップファイルを確認できませんでした。");
+    } finally {
+      setRestoreValidating(false);
+    }
+  };
+
+  const applyRestore = async () => {
+    if (!preparedRestore) return;
+    setRestoreApplying(true);
+    try {
+      await restoreEyeDropBackup(preparedRestore);
+      sessionStorage.setItem(RESTORE_SUCCESS_SESSION_KEY, "true");
+      window.location.reload();
+    } catch (error) {
+      setPreparedRestore(null);
+      setBackupMessage(error instanceof Error ? error.message : "バックアップから復元できませんでした。");
+      setRestoreApplying(false);
     }
   };
 
@@ -1693,7 +1796,7 @@ export default function SettingsPage() {
               </span>
             )}
           </span>
-          <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ver. 1.3.4</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ver. {APP_VERSION}</span>
         </button>
 
         <button
@@ -1732,6 +1835,37 @@ export default function SettingsPage() {
             <p>医療機関や薬局では、必要に応じてお薬手帳や処方箋などもあわせてご確認ください。</p>
           </div>
         </div>
+
+        <section className="mt-6 rounded-3xl border border-sky-200 bg-white p-5 text-left shadow-sm dark:border-sky-900/60 dark:bg-slate-800" aria-labelledby="data-backup-heading">
+          <h2 id="data-backup-heading" className="text-lg font-black text-slate-800 dark:text-white">データのバックアップ</h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">点眼薬・写真・設定・点眼記録を1つのファイルに保存できます。機種変更時などに、新しい端末で復元できます。</p>
+          <p className="mt-2 rounded-xl bg-amber-50 p-3 text-xs font-bold leading-relaxed text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">バックアップには点眼薬の情報と写真が含まれ、パスワードは設定されません。バックアップファイルはご自身で安全な場所に保管してください。</p>
+          {backupMessage && (
+            <button type="button" onClick={() => setBackupMessage(null)} className="mt-3 w-full rounded-xl border border-sky-200 bg-sky-50 p-3 text-left text-xs font-bold leading-relaxed text-sky-700 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-300">
+              {backupMessage}　×
+            </button>
+          )}
+          <div className="mt-4 space-y-3">
+            <button type="button" onClick={() => void buildBackup()} disabled={backupCreating || backupSaving || restoreValidating || restoreApplying} className="w-full rounded-2xl bg-sky-600 py-3.5 text-sm font-black text-white disabled:opacity-50">
+              {backupCreating ? "バックアップを作成中…" : "バックアップを作成"}
+            </button>
+            {createdBackup && (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+                <p className="break-all text-xs font-bold text-emerald-800 dark:text-emerald-300">{createdBackup.fileName}<br />点眼薬 {createdBackup.medicineCount}件・写真 {createdBackup.imageCount}枚</p>
+                <button type="button" onClick={() => void saveOrShareBackup()} disabled={backupSaving} className="mt-3 w-full rounded-xl bg-emerald-600 py-3 text-sm font-black text-white disabled:opacity-50">
+                  {backupSaving ? "保存・共有を準備中…" : "バックアップを保存・共有"}
+                </button>
+              </div>
+            )}
+            <div className="border-t border-slate-100 pt-3 dark:border-slate-700">
+              <input ref={backupInputRef} type="file" accept=".zip,application/zip,application/x-zip-compressed" onChange={(event) => void selectRestoreFile(event)} className="hidden" aria-label="復元するバックアップZIPを選択" />
+              <button type="button" onClick={() => backupInputRef.current?.click()} disabled={backupCreating || backupSaving || restoreValidating || restoreApplying} className="w-full rounded-2xl border-2 border-sky-300 bg-white py-3.5 text-sm font-black text-sky-700 disabled:opacity-50 dark:bg-slate-800 dark:text-sky-300">
+                {restoreValidating ? "バックアップを確認中…" : "バックアップから復元"}
+              </button>
+              <p className="mt-2 text-center text-xs leading-relaxed text-slate-500 dark:text-slate-400">保存したZIPファイルを解凍せず、そのまま選択してください。</p>
+            </div>
+          </div>
+        </section>
 
         {/* アプリ初期化ボタン (免責事項の下に移動) */}
         <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800 text-center">
@@ -1853,6 +1987,14 @@ export default function SettingsPage() {
             {/* モーダルコンテンツ */}
             <div className="p-6 overflow-y-auto max-h-[60vh] custom-scrollbar bg-white dark:bg-slate-800">
               <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-left space-y-4">
+                <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
+                  <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.3.5（2026年8月24日）</p>
+                  <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    ・点眼薬・写真・設定・点眼記録を1つのバックアップファイルに保存できるようになりました。<br />
+                    ・機種変更時などに、保存したファイルからデータを復元できます。<br />
+                    ・ホーム画面のキャラクターは、時間帯に合わせて自動で切り替わるように統一しました。
+                  </p>
+                </div>
                 <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
                   <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.3.4（2026年8月17日）</p>
                   <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -1980,6 +2122,37 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {preparedRestore && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto custom-scrollbar animate-fade-in" role="dialog" aria-modal="true" aria-label="バックアップから復元">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-lg my-8 flex flex-col shadow-2xl relative overflow-hidden animate-scale-up">
+            <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+              <h3 className="text-lg font-black text-slate-800 dark:text-white">バックアップから復元</h3>
+              <button type="button" onClick={() => setPreparedRestore(null)} disabled={restoreApplying} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 font-bold disabled:opacity-40" aria-label="閉じる">✕</button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[65vh] text-sm text-slate-600 dark:text-slate-300">
+              <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-700">
+                <p className="font-black text-slate-800 dark:text-white">バックアップを確認しました</p>
+                <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                  <dt>作成日時</dt><dd className="font-bold">{new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium", timeStyle: "short" }).format(new Date(preparedRestore.manifest.createdAt))}</dd>
+                  <dt>点眼薬</dt><dd className="font-bold">{preparedRestore.manifest.data.medicines.length}件</dd>
+                  <dt>写真</dt><dd className="font-bold">{preparedRestore.photos.length}枚</dd>
+                  <dt>形式</dt><dd className="font-bold">Version {preparedRestore.manifest.backupVersion}</dd>
+                </dl>
+              </div>
+              <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 font-bold leading-relaxed text-red-700 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-300">
+                バックアップからデータを復元します。<br /><br />
+                現在保存されている点眼薬・写真・設定・点眼記録は、バックアップの内容に置き換わります。<br /><br />
+                復元しますか？
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-slate-500 dark:text-slate-400">通知許可は端末固有のため復元されません。復元後にこの端末で再度ご確認ください。</p>
+              <button type="button" onClick={() => void applyRestore()} disabled={restoreApplying} className="mt-5 w-full rounded-2xl bg-red-600 py-3.5 text-base font-black text-white disabled:opacity-50">
+                {restoreApplying ? "復元中…" : "内容を置き換えて復元する"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 3. ライセンス情報モーダル */}
       {isLicenseOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto custom-scrollbar animate-fade-in">
@@ -2002,6 +2175,11 @@ export default function SettingsPage() {
                 <p className="mt-4">
                   本アプリに登場するキャラクター「ノクト」「ルクス」「朔」、およびその他のイラスト、アプリアイコン等は、すべて製作者「ゆうまるす」のオリジナル著作物です。画像の無断転載・複製・商用利用は固くお断りいたします。
                 </p>
+                <div className="mt-6 border-t border-slate-200 pt-5 dark:border-slate-700">
+                  <p className="font-extrabold text-slate-800 dark:text-white">第三者ライブラリ</p>
+                  <p className="mt-2">JSZip — Copyright (c) 2009-2016 Stuart Knightley, David Duponchel, Franz Buchinger, António Afonso（MIT License）</p>
+                  <a href="https://github.com/Stuk/jszip/blob/main/LICENSE.markdown" target="_blank" rel="noreferrer" className="mt-2 inline-block font-bold text-blue-500 underline underline-offset-4">ライセンス全文 ↗</a>
+                </div>
               </div>
             </div>
             {/* モーダルフッター */}

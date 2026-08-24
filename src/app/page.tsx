@@ -123,8 +123,6 @@ export default function Home() {
   const [asNeededProcessing, setAsNeededProcessing] = useState<Record<number, boolean>>({});
 
   const [isProcessing, setIsProcessing] = useState(false);
-  const touchStartY = useRef(0); // スマホ用タップ判定
-
   const [message, setMessage] = useState("忘れずに目薬をさしましょう！");
   const [timerFinishedNotice, setTimerFinishedNotice] = useState<string | null>(null);
   const [character, setCharacter] = useState<"saku" | "lux" | "noct">("lux");
@@ -1023,24 +1021,7 @@ export default function Home() {
           ) : null}
         </header>
 
-        <div
-          className="flex flex-col items-center justify-center h-[200px] relative cursor-pointer touch-manipulation"
-          onClick={() => {
-            addDebug("Char clicked(click)");
-            stopGreeting();
-            setCharacter((prev) => (prev === "lux" ? "noct" : prev === "noct" ? "saku" : "lux"));
-          }}
-          onTouchStart={(e) => { touchStartY.current = e.touches[0].clientY; }}
-          onTouchEnd={(e) => {
-            const diff = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
-            if (diff < 10) {
-              e.preventDefault();
-              addDebug("Char clicked(touch)");
-              stopGreeting();
-              setCharacter((prev) => (prev === "lux" ? "noct" : prev === "noct" ? "saku" : "lux"));
-            }
-          }}
-        >
+        <div className="flex flex-col items-center justify-center h-[200px] relative">
           {/* キャラクター画像を中央から左寄りに配置 */}
           <div className="mr-24 sm:mr-32">
             <Image
