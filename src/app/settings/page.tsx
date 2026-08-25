@@ -2006,6 +2006,15 @@ export default function SettingsPage() {
             <div className="p-6 overflow-y-auto max-h-[60vh] custom-scrollbar bg-white dark:bg-slate-800">
               <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-left space-y-4">
                 <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
+                  <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.3.6（2026年8月25日）</p>
+                  <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    ・点眼履歴カレンダーから、その日の点眼内容を詳しく確認できるようになりました。<br />
+                    ・カレンダーの日付をタップすると、その日に予定されていた点眼薬と「点眼済み／未点眼」を時間帯ごとに確認できます。<br />
+                    ・過去の点眼内容は、その日に登録されていた内容を記録として残すようになり、その後に点眼薬の変更や点眼終了をしても過去の記録を確認できます。<br />
+                    ※薬ごとの詳細な点眼履歴は、Ver. 1.3.5以降に記録された日付から確認できます。それ以前の記録については、薬ごとの詳細は表示できません。
+                  </p>
+                </div>
+                <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
                   <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.3.5（2026年8月24日）</p>
                   <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
                     ・点眼薬・写真・設定・点眼記録を1つのバックアップファイルに保存できるようになりました。<br />
