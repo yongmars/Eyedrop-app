@@ -43,6 +43,11 @@ import {
   prepareEyeDropRestore,
   restoreEyeDropBackup,
 } from "../../lib/eyeDropBackup";
+import {
+  EYE_DROP_SNAPSHOTS_STORAGE_KEY,
+  reconcileCurrentEyeDropSnapshot,
+  syncEyeDropSnapshotsFromStorage,
+} from "../../lib/eyeDropSnapshots";
 
 type MedicineType = "water" | "suspension" | "gel" | "ointment";
 type StorageType = "room" | "cold";
@@ -304,7 +309,7 @@ export default function SettingsPage() {
   useEffect(() => {
     setIsMounted(true);
     const saved = localStorage.getItem("my_medication_data");
-    let currentMeds = [];
+    let currentMeds: Medicine[] = [];
     if (saved) {
       try {
         currentMeds = JSON.parse(saved);
@@ -316,6 +321,8 @@ export default function SettingsPage() {
       currentMeds = sortMedicines(initialMedicines);
       setMedicines(currentMeds);
     }
+
+    syncEyeDropSnapshotsFromStorage(currentMeds);
 
     // アップデート情報既読確認
     const readRecord = localStorage.getItem(`read_update_${UPDATE_VERSION}`);
@@ -521,8 +528,10 @@ export default function SettingsPage() {
         return;
       }
     }
-    setMedicines(updated);
+    syncEyeDropSnapshotsFromStorage(medicines);
     localStorage.setItem("my_medication_data", JSON.stringify(updated));
+    reconcileCurrentEyeDropSnapshot(updated);
+    setMedicines(updated);
     notifyMedicineDataChanged();
 
     // スナックバー非表示にしてタイマークリア
@@ -629,7 +638,9 @@ export default function SettingsPage() {
     ));
 
     try {
+      syncEyeDropSnapshotsFromStorage(medicines);
       localStorage.setItem("my_medication_data", JSON.stringify(updated));
+      reconcileCurrentEyeDropSnapshot(updated);
     } catch (error) {
       console.error("Failed to archive medicine", error);
       alert("点眼終了の状態を保存できませんでした。端末の空き容量をご確認ください。");
@@ -698,7 +709,9 @@ export default function SettingsPage() {
 
     const updated = medicines.filter((med) => med.id !== id);
     try {
+      syncEyeDropSnapshotsFromStorage(medicines);
       localStorage.setItem("my_medication_data", JSON.stringify(updated));
+      reconcileCurrentEyeDropSnapshot(updated);
     } catch (error) {
       if (photoToDelete) {
         try {
@@ -830,7 +843,9 @@ export default function SettingsPage() {
 
       const sorted = sortMedicines(updatedMedicines);
       try {
+        syncEyeDropSnapshotsFromStorage(medicines);
         localStorage.setItem("my_medication_data", JSON.stringify(sorted));
+        reconcileCurrentEyeDropSnapshot(sorted);
       } catch (error) {
         if (photoChanged) {
           try {
@@ -894,7 +909,9 @@ export default function SettingsPage() {
 
       // ステートとlocalStorageに保存
       try {
+        syncEyeDropSnapshotsFromStorage(medicines);
         localStorage.setItem("my_medication_data", JSON.stringify(updatedMedicines));
+        reconcileCurrentEyeDropSnapshot(updatedMedicines);
       } catch (error) {
         if (pendingPhotoBlob) {
           try {
@@ -1028,6 +1045,7 @@ export default function SettingsPage() {
     localStorage.removeItem("eye-drop-currentIndex");
     localStorage.removeItem("eye-drop-status");
     localStorage.removeItem("eye-drop-history");
+    localStorage.removeItem(EYE_DROP_SNAPSHOTS_STORAGE_KEY);
 
     // ③ アプリ内の目薬リストを空にする
     setMedicines([]);

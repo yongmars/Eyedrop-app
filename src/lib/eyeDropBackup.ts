@@ -21,6 +21,11 @@ import {
   TIMER_CHIME_SETTINGS_STORAGE_KEY,
   TimerChimeSettings,
 } from "./timerChime";
+import {
+  EYE_DROP_SNAPSHOTS_STORAGE_KEY,
+  EyeDropSnapshotStore,
+  normalizeEyeDropSnapshotStore,
+} from "./eyeDropSnapshots";
 
 export const BACKUP_VERSION = 1;
 export const MEDICINES_STORAGE_KEY = "my_medication_data";
@@ -51,6 +56,7 @@ const TEMPORARY_STORAGE_KEYS = [
 const MANAGED_STORAGE_KEYS = [
   MEDICINES_STORAGE_KEY,
   HISTORY_STORAGE_KEY,
+  EYE_DROP_SNAPSHOTS_STORAGE_KEY,
   NOTIFICATION_SETTINGS_STORAGE_KEY,
   TIMER_CHIME_SETTINGS_STORAGE_KEY,
   ...TEMPORARY_STORAGE_KEYS,
@@ -102,6 +108,7 @@ export interface EyeDropBackupV1 {
     history: EyeDropHistory;
     notificationSettings: LocalNotificationSettings;
     timerChimeSettings: TimerChimeSettings;
+    dailySnapshots?: EyeDropSnapshotStore;
   };
   images: BackupImageManifest[];
 }
@@ -223,6 +230,12 @@ const validateHistory = (value: unknown): EyeDropHistory => {
   return result;
 };
 
+const validateDailySnapshots = (value: unknown): EyeDropSnapshotStore => {
+  const snapshots = normalizeEyeDropSnapshotStore(value);
+  if (!snapshots) throw new EyeDropBackupError("薬ごとの点眼履歴の形式が正しくありません。");
+  return snapshots;
+};
+
 const validateNotificationSettings = (value: unknown): LocalNotificationSettings => {
   if (!isPlainObject(value) || typeof value.enabled !== "boolean" || !isPlainObject(value.slots)) {
     throw new EyeDropBackupError("通知設定の形式が正しくありません。");
@@ -327,6 +340,9 @@ const validateManifest = (value: unknown): EyeDropBackupV1 => {
       history: validateHistory(value.data.history),
       notificationSettings: validateNotificationSettings(value.data.notificationSettings),
       timerChimeSettings: validateTimerChimeSettings(value.data.timerChimeSettings),
+      ...(value.data.dailySnapshots === undefined
+        ? {}
+        : { dailySnapshots: validateDailySnapshots(value.data.dailySnapshots) }),
     },
     images,
   };
@@ -343,6 +359,10 @@ export const createEyeDropBackup = async (dependencies: CreateDependencies = {})
   const history = validateHistory(readStoredJson(storage, HISTORY_STORAGE_KEY, {}));
   const notificationSettings = validateNotificationSettings((dependencies.readNotifications ?? readNotificationSettings)());
   const timerChimeSettings = validateTimerChimeSettings((dependencies.readTimerChime ?? readTimerChimeSettings)());
+  const storedSnapshots = storage.getItem(EYE_DROP_SNAPSHOTS_STORAGE_KEY);
+  const dailySnapshots = storedSnapshots === null
+    ? undefined
+    : validateDailySnapshots(readStoredJson(storage, EYE_DROP_SNAPSHOTS_STORAGE_KEY, null));
   const photoMap = await (dependencies.getPhotos ?? getMedicinePhotos)(medicines.map((medicine) => medicine.id));
   const zip = new JSZip();
   const images: BackupImageManifest[] = [];
@@ -368,7 +388,13 @@ export const createEyeDropBackup = async (dependencies: CreateDependencies = {})
     backupVersion: 1,
     appVersion: APP_VERSION,
     createdAt: new Date().toISOString(),
-    data: { medicines, history, notificationSettings, timerChimeSettings },
+    data: {
+      medicines,
+      history,
+      notificationSettings,
+      timerChimeSettings,
+      ...(dailySnapshots ? { dailySnapshots } : {}),
+    },
     images,
   };
   zip.file("backup.json", JSON.stringify(manifest, null, 2));
@@ -460,6 +486,11 @@ export const restoreEyeDropBackup = async (prepared: PreparedEyeDropRestore, dep
     storage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(prepared.manifest.data.history));
     storage.setItem(NOTIFICATION_SETTINGS_STORAGE_KEY, JSON.stringify(prepared.manifest.data.notificationSettings));
     storage.setItem(TIMER_CHIME_SETTINGS_STORAGE_KEY, JSON.stringify(prepared.manifest.data.timerChimeSettings));
+    if (prepared.manifest.data.dailySnapshots) {
+      storage.setItem(EYE_DROP_SNAPSHOTS_STORAGE_KEY, JSON.stringify(prepared.manifest.data.dailySnapshots));
+    } else {
+      storage.removeItem(EYE_DROP_SNAPSHOTS_STORAGE_KEY);
+    }
     TEMPORARY_STORAGE_KEYS.forEach((key) => storage.removeItem(key));
     dispatchChanges();
   } catch (error) {

@@ -19,6 +19,7 @@ import {
   NOTIFICATION_SETTINGS_STORAGE_KEY,
 } from "./localNotifications";
 import { TIMER_CHIME_SETTINGS_STORAGE_KEY } from "./timerChime";
+import { EYE_DROP_SNAPSHOTS_STORAGE_KEY, EyeDropSnapshotStore } from "./eyeDropSnapshots";
 
 const jpegBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0xff, 0xd9]);
 
@@ -54,6 +55,24 @@ const archivedMedicine: EyeDropMedicine = {
 };
 
 const timerChimeSettings = { enabled: false, volume: 0.25 };
+const dailySnapshots: EyeDropSnapshotStore = {
+  version: 1,
+  trackingStartedOn: "2026-08-24",
+  lastProcessedDate: "2026-08-24",
+  days: {
+    "2026-08-24": {
+      finalizedAt: "2026-08-25T00:00:00.000Z",
+      timings: {
+        morning: {
+          medicines: [
+            { medicineId: 1, name: "保存時の朝の点眼薬", scheduled: true, completed: true },
+            { medicineId: 99, name: "削除済みの点眼薬", scheduled: true, completed: false },
+          ],
+        },
+      },
+    },
+  },
+};
 
 const baseManifest = (): EyeDropBackupV1 => ({
   backupVersion: BACKUP_VERSION,
@@ -95,6 +114,7 @@ describe("eye drop backup", () => {
     localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
     localStorage.setItem(NOTIFICATION_SETTINGS_STORAGE_KEY, JSON.stringify(DEFAULT_NOTIFICATION_SETTINGS));
     localStorage.setItem(TIMER_CHIME_SETTINGS_STORAGE_KEY, JSON.stringify(timerChimeSettings));
+    localStorage.setItem(EYE_DROP_SNAPSHOTS_STORAGE_KEY, JSON.stringify(dailySnapshots));
     const linkedPhotos = new Map([
       [1, { medicineId: 1, blob: new Blob([copyToArrayBuffer(jpegBytes)], { type: "image/jpeg" }), updatedAt: "2026-08-24T01:00:00.000Z" }],
       [2, { medicineId: 2, blob: new Blob([copyToArrayBuffer(jpegBytes)], { type: "image/jpeg" }), updatedAt: "2026-08-24T02:00:00.000Z" }],
@@ -126,6 +146,7 @@ describe("eye drop backup", () => {
     expect(JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) ?? "{}")).toEqual(history);
     expect(JSON.parse(localStorage.getItem(NOTIFICATION_SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(DEFAULT_NOTIFICATION_SETTINGS);
     expect(JSON.parse(localStorage.getItem(TIMER_CHIME_SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(timerChimeSettings);
+    expect(JSON.parse(localStorage.getItem(EYE_DROP_SNAPSHOTS_STORAGE_KEY) ?? "{}")).toEqual(dailySnapshots);
     expect(localStorage.getItem(NOTIFICATION_SENT_STORAGE_KEY)).toBeNull();
     expect(localStorage.getItem("eye-drop-timingStates")).toBeNull();
     const photos = await getAllMedicinePhotos();
@@ -146,6 +167,27 @@ describe("eye drop backup", () => {
     await expectRejectedWithoutChanges(await makeZip("{broken"), /backup\.jsonを読み込めません/);
   });
 
+  it("薬別履歴のない既存Version 1を受け入れ、既存端末の薬別履歴を空にする", async () => {
+    localStorage.setItem(EYE_DROP_SNAPSHOTS_STORAGE_KEY, JSON.stringify(dailySnapshots));
+    const prepared = await prepareEyeDropRestore(await makeZip(baseManifest()));
+    await restoreEyeDropBackup(prepared);
+    expect(prepared.manifest.data.dailySnapshots).toBeUndefined();
+    expect(localStorage.getItem(EYE_DROP_SNAPSHOTS_STORAGE_KEY)).toBeNull();
+  });
+
+  it("不正な薬別履歴を復元前に拒否する", async () => {
+    const invalid = baseManifest();
+    invalid.data.dailySnapshots = {
+      ...dailySnapshots,
+      days: {
+        "2026-08-24": {
+          timings: { morning: { medicines: [{ medicineId: 1, name: "A", scheduled: true, completed: "yes" }] } },
+        },
+      },
+    } as unknown as EyeDropSnapshotStore;
+    await expectRejectedWithoutChanges(await makeZip(invalid), /薬ごとの点眼履歴/);
+  });
+
   it("重複した薬IDと不正な写真パスを拒否する", async () => {
     const duplicate = baseManifest();
     duplicate.data.medicines = [activeMedicine, { ...archivedMedicine, id: 1 }];
@@ -164,19 +206,24 @@ describe("eye drop backup", () => {
   });
 
   it("localStorage書込み失敗時は写真と保存値を復元前へ戻す", async () => {
-    const values = new Map<string, string>([[MEDICINES_STORAGE_KEY, "before"]]);
+    const values = new Map<string, string>([
+      [MEDICINES_STORAGE_KEY, "before"],
+      [EYE_DROP_SNAPSHOTS_STORAGE_KEY, "before-snapshots"],
+    ]);
     let shouldFail = true;
     const storage = {
       getItem: (key: string) => values.get(key) ?? null,
       setItem: (key: string, value: string) => {
-        if (key === MEDICINES_STORAGE_KEY && shouldFail) { shouldFail = false; throw new Error("quota"); }
+        if (key === EYE_DROP_SNAPSHOTS_STORAGE_KEY && shouldFail) { shouldFail = false; throw new Error("quota"); }
         values.set(key, value);
       },
       removeItem: (key: string) => { values.delete(key); },
     };
     const oldPhotos = [{ medicineId: 9, blob: new Blob([copyToArrayBuffer(jpegBytes)], { type: "image/jpeg" }), updatedAt: "2026-08-24T00:00:00.000Z" }];
     let currentPhotos = oldPhotos;
-    const prepared: PreparedEyeDropRestore = { manifest: baseManifest(), photos: [] };
+    const restoreManifest = baseManifest();
+    restoreManifest.data.dailySnapshots = dailySnapshots;
+    const prepared: PreparedEyeDropRestore = { manifest: restoreManifest, photos: [] };
     await expect(restoreEyeDropBackup(prepared, {
       storage,
       readPhotos: async () => oldPhotos,
@@ -184,6 +231,7 @@ describe("eye drop backup", () => {
       dispatchChanges: () => undefined,
     })).rejects.toThrow(/復元前のデータに戻しました/);
     expect(values.get(MEDICINES_STORAGE_KEY)).toBe("before");
+    expect(values.get(EYE_DROP_SNAPSHOTS_STORAGE_KEY)).toBe("before-snapshots");
     expect(currentPhotos).toBe(oldPhotos);
   });
 

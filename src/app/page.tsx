@@ -5,6 +5,12 @@ import { useState, useEffect, useRef } from "react";
 import { playTimerChime, prepareTimerChimeAudio } from "../lib/timerChime";
 import { getMedicinePhotos } from "../lib/medicinePhotos";
 import { getActiveMedicines, MedicineStatusFields } from "../lib/medicineStatus";
+import {
+  markEyeDropSnapshotCompleted,
+  reconcileCurrentEyeDropSnapshot,
+  syncEyeDropSnapshots,
+  syncEyeDropSnapshotsFromStorage,
+} from "../lib/eyeDropSnapshots";
 
 type MedicineType = "water" | "suspension" | "gel" | "ointment";
 type StorageType = "room" | "cold";
@@ -253,6 +259,9 @@ export default function Home() {
     const todayStr = getTodayString();
     const lastSavedDate = localStorage.getItem("eye-drop-lastSavedDate");
     const savedStates = localStorage.getItem("eye-drop-timingStates");
+
+    // 日付をリセットする前に、前回保存した進捗で過去日の薬別履歴を確定する。
+    syncEyeDropSnapshotsFromStorage(currentMeds, todayStr);
 
     if (lastSavedDate !== todayStr) {
       // 日付が切り替わっているため、タイミングの状態をリセット
@@ -544,7 +553,14 @@ export default function Home() {
       };
       localStorage.setItem("eye-drop-history", JSON.stringify(history));
     }
-  }, [timingStates, isMounted]);
+
+    syncEyeDropSnapshots({
+      medicines,
+      progressStates: timingStates,
+      progressDate: todayStr,
+      currentDate: todayStr,
+    });
+  }, [timingStates, isMounted, medicines]);
 
   // 時間帯（タブ）選択によるキャラクター切り替え
   useEffect(() => {
@@ -624,6 +640,9 @@ export default function Home() {
   const checkAndUpdateTimeAndDate = (currentMeds: Medicine[]) => {
     const todayStr = getTodayString();
     const lastSavedDate = localStorage.getItem("eye-drop-lastSavedDate");
+
+    // 古い日付の進捗を読み取ってから、ホーム画面の状態を当日用に戻す。
+    syncEyeDropSnapshotsFromStorage(currentMeds, todayStr);
 
     if (lastSavedDate !== todayStr) {
       // 日付が切り替わっているため、タイミングの状態をリセット
@@ -789,6 +808,10 @@ export default function Home() {
     }
 
     void prepareTimerChimeAudio();
+
+    // 受理された点眼は、3秒後の画面遷移を待たず薬別履歴へ保存する。
+    reconcileCurrentEyeDropSnapshot(medicines);
+    markEyeDropSnapshotCompleted(med.id, selectedTiming);
 
     addDebug("3. setIsProcessing(true)");
     setIsProcessing(true);
