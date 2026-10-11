@@ -2006,6 +2006,13 @@ export default function SettingsPage() {
             <div className="p-6 overflow-y-auto max-h-[60vh] custom-scrollbar bg-white dark:bg-slate-800">
               <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-left space-y-4">
                 <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
+                  <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.3.7（2026年10月11日）</p>
+                  <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    ・点眼薬リストに9種類の目薬を追加しました。<br />
+                    ・目薬の登録時に、新しく追加された目薬も検索して選べるようになりました。
+                  </p>
+                </div>
+                <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
                   <p className="font-extrabold text-slate-800 dark:text-white">■ Ver. 1.3.6（2026年8月25日）</p>
                   <p className="pl-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
                     ・点眼履歴カレンダーから、その日の点眼内容を詳しく確認できるようになりました。<br />
